@@ -10,6 +10,7 @@ import {
 } from '@mui/material';
 import LockOutlinedIcon from '@mui/icons-material/LockOutlined';
 import AuthWrapper from '../components/AuthWrapper';
+import { login } from '../services/authService'; // <-- Import login
 
 export default function LoginPage() {
   const navigate = useNavigate();
@@ -17,9 +18,12 @@ export default function LoginPage() {
     idNumber: '',
     password: ''
   });
+  const [formError, setFormError] = useState('');
+  const [loading, setLoading] = useState(false);
 
-  const handleSubmit = (event) => {
+  const handleSubmit = async (event) => {
     event.preventDefault();
+    setFormError('');
     const data = new FormData(event.currentTarget);
     const idNumber = data.get('idNumber')?.trim();
     const password = data.get('password');
@@ -39,9 +43,16 @@ export default function LoginPage() {
     const hasErrors = Object.values(newErrors).some(e => e !== '');
     if (hasErrors) return;
 
-    // TODO: Implement login logic
-    console.log('Logging in...');
-    navigate('/dashboard');
+    setLoading(true);
+    try {
+      const result = await login(idNumber, password);
+      localStorage.setItem('token', result.token); // Store JWT
+      navigate('/dashboard');
+    } catch (err) {
+      setFormError(err.error || 'Login failed');
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -70,14 +81,20 @@ export default function LoginPage() {
             error={!!errors.password}
             helperText={errors.password}
           />
+          {formError && (
+            <Typography color="error" variant="body2">
+              {formError}
+            </Typography>
+          )}
         </Stack>
         <Button
           type="submit"
           fullWidth
           variant="contained"
           sx={{ mt: 3, mb: 1.5 }}
+          disabled={loading}
         >
-          Sign In
+          {loading ? 'Signing In...' : 'Sign In'}
         </Button>
         <Stack direction="column" alignItems="center" spacing={0.5}>
           <Link component={RouterLink} to="/forgot-password" variant="body2">

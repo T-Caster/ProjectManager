@@ -10,13 +10,17 @@ import {
 } from '@mui/material';
 import LockResetOutlinedIcon from '@mui/icons-material/LockResetOutlined';
 import AuthWrapper from "../components/AuthWrapper";
+import { forgotPassword } from "../services/authService";
 
 export default function ForgotPasswordPage() {
   const navigate = useNavigate();
   const [idError, setIdError] = useState('');
+  const [formError, setFormError] = useState('');
+  const [loading, setLoading] = useState(false);
 
-  const handleSubmit = (event) => {
+  const handleSubmit = async (event) => {
     event.preventDefault();
+    setFormError('');
     const data = new FormData(event.currentTarget);
     const idNumber = data.get('idNumber')?.trim();
 
@@ -26,9 +30,15 @@ export default function ForgotPasswordPage() {
       return;
     }
 
-    // TODO: Backend logic to send code to user's email
-    console.log("Requesting password reset...");
-    navigate('/reset-password');
+    setLoading(true);
+    try {
+      await forgotPassword(idNumber);
+      navigate('/reset-password', { state: { idNumber } });
+    } catch (err) {
+      setFormError(err.error || 'Failed to send recovery code');
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -48,13 +58,19 @@ export default function ForgotPasswordPage() {
           error={!!idError}
           helperText={idError}
         />
+        {formError && (
+          <Typography color="error" variant="body2" sx={{ mt: 1 }}>
+            {formError}
+          </Typography>
+        )}
         <Button
           type="submit"
           fullWidth
           variant="contained"
           sx={{ mt: 3, mb: 2 }}
+          disabled={loading}
         >
-          Send Recovery Code
+          {loading ? 'Sending...' : 'Send Recovery Code'}
         </Button>
         <Grid container justifyContent="flex-end">
           <Grid item>

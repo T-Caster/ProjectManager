@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Link as RouterLink } from 'react-router-dom';
+import { Link as RouterLink, useNavigate } from 'react-router-dom';
 import {
   Box,
   TextField,
@@ -10,8 +10,10 @@ import {
 } from '@mui/material';
 import HowToRegOutlinedIcon from '@mui/icons-material/HowToRegOutlined';
 import AuthWrapper from "../components/AuthWrapper";
+import { register } from "../services/authService";
 
 export default function RegisterPage() {
+  const navigate = useNavigate();
   const [errors, setErrors] = useState({
     fullName: '',
     email: '',
@@ -19,9 +21,13 @@ export default function RegisterPage() {
     password: '',
     confirmPassword: '',
   });
+  const [formError, setFormError] = useState('');
+  const [loading, setLoading] = useState(false);
+  const [profilePic, setProfilePic] = useState(null);
 
-  const handleSubmit = (event) => {
+  const handleSubmit = async (event) => {
     event.preventDefault();
+    setFormError('');
     const data = new FormData(event.currentTarget);
     const fullName = data.get('fullName')?.trim();
     const email = data.get('email')?.trim();
@@ -54,13 +60,28 @@ export default function RegisterPage() {
     const hasErrors = Object.values(newErrors).some(e => e !== '');
     if (hasErrors) return;
 
-    // TODO: Implement registration logic
-    console.log('Registering...');
+    setLoading(true);
+    try {
+      const formData = new FormData();
+      formData.append("fullName", fullName);
+      formData.append("email", email);
+      formData.append("idNumber", idNumber);
+      formData.append("password", password);
+      if (profilePic) {
+        formData.append("profilePic", profilePic);
+      }
+      await register(formData); // pass FormData directly
+      navigate('/login');
+    } catch (err) {
+      setFormError(err.error || 'Registration failed');
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
     <AuthWrapper title="Sign Up" icon={<HowToRegOutlinedIcon />}>
-      <Box component="form" onSubmit={handleSubmit} noValidate>
+      <Box component="form" onSubmit={handleSubmit} noValidate encType="multipart/form-data">
         <Stack spacing={2}>
           <TextField
             required
@@ -110,14 +131,32 @@ export default function RegisterPage() {
             error={!!errors.confirmPassword}
             helperText={errors.confirmPassword}
           />
+          <Button
+            variant="outlined"
+            component="label"
+          >
+            {profilePic ? profilePic.name : "Upload Profile Picture (optional)"}
+            <input
+              type="file"
+              accept="image/*"
+              hidden
+              onChange={e => setProfilePic(e.target.files[0])}
+            />
+          </Button>
+          {formError && (
+            <Typography color="error" variant="body2">
+              {formError}
+            </Typography>
+          )}
         </Stack>
         <Button
           type="submit"
           fullWidth
           variant="contained"
           sx={{ mt: 3, mb: 1.5 }}
+          disabled={loading}
         >
-          Sign Up
+          {loading ? 'Signing Up...' : 'Sign Up'}
         </Button>
         <Typography align="center" variant="body2">
           <Link component={RouterLink} to="/login">

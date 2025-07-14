@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { useLocation, useNavigate } from 'react-router-dom';
 import {
   Box,
   Typography,
@@ -7,16 +8,25 @@ import {
 } from '@mui/material';
 import LockResetOutlinedIcon from '@mui/icons-material/LockResetOutlined';
 import AuthWrapper from "../components/AuthWrapper";
+import { resetPassword } from "../services/authService";
 
 export default function ResetPasswordPage() {
+  const location = useLocation();
+  const navigate = useNavigate();
   const [errors, setErrors] = useState({
     recoveryCode: '',
     password: '',
     confirmPassword: ''
   });
+  const [formError, setFormError] = useState('');
+  const [loading, setLoading] = useState(false);
 
-  const handleSubmit = (event) => {
+  // Try to get idNumber from navigation state (from forgot password)
+  const idNumber = location.state?.idNumber || '';
+
+  const handleSubmit = async (event) => {
     event.preventDefault();
+    setFormError('');
     const data = new FormData(event.currentTarget);
     const recoveryCode = data.get('recoveryCode')?.trim();
     const password = data.get('password');
@@ -38,8 +48,15 @@ export default function ResetPasswordPage() {
     const hasErrors = Object.values(newErrors).some(e => e !== '');
     if (hasErrors) return;
 
-    // TODO: Implement password update logic
-    console.log("Password has been reset.");
+    setLoading(true);
+    try {
+      await resetPassword(idNumber, recoveryCode, password);
+      navigate('/login');
+    } catch (err) {
+      setFormError(err.error || 'Failed to reset password');
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -80,13 +97,19 @@ export default function ResetPasswordPage() {
           error={!!errors.confirmPassword}
           helperText={errors.confirmPassword}
         />
+        {formError && (
+          <Typography color="error" variant="body2" sx={{ mt: 1 }}>
+            {formError}
+          </Typography>
+        )}
         <Button
           type="submit"
           fullWidth
           variant="contained"
           sx={{ mt: 3, mb: 2 }}
+          disabled={loading}
         >
-          Update Password
+          {loading ? 'Updating...' : 'Update Password'}
         </Button>
       </Box>
     </AuthWrapper>
