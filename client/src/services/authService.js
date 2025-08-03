@@ -66,9 +66,18 @@ export const forgotPassword = async (idNumber) => {
 }
 
 // Reset password using recovery code
-export const resetPassword = async (idNumber, recoveryCode, password) => {
+export const resetPassword = async (token, password) => {
     try {
-        const response = await axios.post("/auth/reset-password", { idNumber, recoveryCode, password });
+        const response = await axios.post(`/auth/reset-password/${token}`, { password });
+        return response.data;
+    } catch (error) {
+        throw error.response.data;
+    }
+}
+
+export const validateResetToken = async (token) => {
+    try {
+        const response = await axios.get(`/auth/reset-password/${token}`);
         return response.data;
     } catch (error) {
         throw error.response.data;

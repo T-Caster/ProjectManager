@@ -11,6 +11,12 @@ export default function AuthGuard({ children }) {
   const navigate = useNavigate();
 
   useEffect(() => {
+    const token = localStorage.getItem("token");
+    if (!token) {
+      navigate("/login", { replace: true });
+      return;
+    }
+
     const checkAuth = async () => {
       try {
         const userData = await getCurrentUser();

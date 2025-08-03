@@ -1,10 +1,13 @@
 const dotenv = require('dotenv');
 dotenv.config();
 
-const mailjet = require('node-mailjet');
-const mailClient = mailjet.apiConnect(
-  process.env.MJ_APIKEY_PUBLIC,
-  process.env.MJ_APIKEY_PRIVATE
-);
+const emailjs = require('@emailjs/nodejs');
 
-module.exports = mailClient;
+emailjs.init({
+    publicKey: process.env.EMAILJS_PUBLIC_KEY,
+    privateKey: process.env.EMAILJS_PRIVATE_KEY,
+});
+
+console.log("EmailJS client initialized");
+
+module.exports = emailjs;

@@ -13,10 +13,10 @@ import AuthWrapper from "../components/AuthWrapper";
 import { forgotPassword } from "../services/authService";
 
 export default function ForgotPasswordPage() {
-  const navigate = useNavigate();
   const [idError, setIdError] = useState('');
   const [formError, setFormError] = useState('');
   const [loading, setLoading] = useState(false);
+  const [emailSent, setEmailSent] = useState(false);
 
   const handleSubmit = async (event) => {
     event.preventDefault();
@@ -32,19 +32,31 @@ export default function ForgotPasswordPage() {
 
     setLoading(true);
     try {
-      await forgotPassword(idNumber);
-      navigate('/reset-password', { state: { idNumber } });
+      const response = await forgotPassword(idNumber);
+      if (response.message) {
+        setEmailSent(true);
+      }
     } catch (err) {
-      setFormError(err.error || 'Failed to send recovery code');
+      setFormError(err.error || 'Failed to send recovery email');
     } finally {
       setLoading(false);
     }
   };
 
+  if (emailSent) {
+    return (
+      <AuthWrapper title="Email Sent" icon={<LockResetOutlinedIcon />}>
+        <Typography variant="body2" align="center">
+          An email has been sent to the address associated with your account with further instructions.
+        </Typography>
+      </AuthWrapper>
+    );
+  }
+
   return (
     <AuthWrapper title="Forgot Password" icon={<LockResetOutlinedIcon />}>
       <Typography variant="body2" align="center" sx={{ mb: 2 }}>
-        Enter your ID number and we'll send a recovery code to the email address associated with your account.
+        Enter your ID number and we'll send a recovery link to the email address associated with your account.
       </Typography>
       <Box component="form" onSubmit={handleSubmit} noValidate>
         <TextField
@@ -70,7 +82,7 @@ export default function ForgotPasswordPage() {
           sx={{ mt: 3, mb: 2 }}
           disabled={loading}
         >
-          {loading ? 'Sending...' : 'Send Recovery Code'}
+          {loading ? 'Sending...' : 'Send Recovery Email'}
         </Button>
         <Grid container justifyContent="flex-end">
           <Grid item>

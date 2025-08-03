@@ -1,4 +1,4 @@
-import {Routes, Route} from "react-router-dom"
+import { Routes, Route } from "react-router-dom"
 import LoginPage from "./pages/LoginPage";
 import RegisterPage from "./pages/RegisterPage";
 import ForgotPasswordPage from "./pages/ForgotPasswordPage";
@@ -7,6 +7,7 @@ import DashboardPage from "./pages/DashboardPage";
 import ProfilePage from "./pages/ProfilePage";
 import AuthGuard from "./components/AuthGuard";
 import AuthRoute from "./components/AuthRoute";
+import DashboardLayout from "./layouts/DashboardLayout";
 
 export default function App() {
   return (
@@ -36,22 +37,15 @@ export default function App() {
           <ResetPasswordPage />
         </AuthRoute>
       } />
-      <Route
-        path="/dashboard"
-        element={
-          <AuthGuard>
-            <DashboardPage />
-          </AuthGuard>
-        }
-      />
-      <Route
-        path="/profile"
-        element={
-          <AuthGuard>
-            <ProfilePage />
-          </AuthGuard>
-        }
-      />
+      <Route path="/reset-password/:token" element={
+        <AuthRoute>
+          <ResetPasswordPage />
+        </AuthRoute>
+      } />
+        <Route element={<AuthGuard><DashboardLayout /></AuthGuard>}>
+          <Route path="/dashboard" element={<DashboardPage />} />
+          <Route path="/profile" element={<ProfilePage />} />
+        </Route>
     </Routes>
   );
 }

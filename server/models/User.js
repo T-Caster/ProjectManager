@@ -7,6 +7,8 @@ const userSchema = new mongoose.Schema({
   role: { type: String, enum: ["student", "mentor", "hod"], default: 'student' },
   password: String,
   recoveryCode: String,
+  resetPasswordToken: String,
+  resetPasswordExpires: Date,
   profilePic: { type: String, default: "uploads/default.png" }
 });
 

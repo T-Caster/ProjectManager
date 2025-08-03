@@ -1,5 +1,5 @@
-import { useState } from 'react';
-import { useLocation, useNavigate } from 'react-router-dom';
+import { useState, useEffect } from 'react';
+import { useNavigate, useParams } from 'react-router-dom';
 import {
   Box,
   Typography,
@@ -8,37 +8,46 @@ import {
 } from '@mui/material';
 import LockResetOutlinedIcon from '@mui/icons-material/LockResetOutlined';
 import AuthWrapper from "../components/AuthWrapper";
-import { resetPassword } from "../services/authService";
+import { resetPassword, validateResetToken } from "../services/authService";
 
 export default function ResetPasswordPage() {
-  const location = useLocation();
   const navigate = useNavigate();
+  const { token } = useParams();
   const [errors, setErrors] = useState({
-    recoveryCode: '',
     password: '',
     confirmPassword: ''
   });
   const [formError, setFormError] = useState('');
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [isValidToken, setIsValidToken] = useState(false);
 
-  // Try to get idNumber from navigation state (from forgot password)
-  const idNumber = location.state?.idNumber || '';
+  useEffect(() => {
+    const checkToken = async () => {
+      try {
+        await validateResetToken(token);
+        setIsValidToken(true);
+      } catch (err) {
+        setFormError(err.error || 'Invalid or expired token.');
+        setIsValidToken(false);
+      } finally {
+        setLoading(false);
+      }
+    };
+    checkToken();
+  }, [token]);
 
   const handleSubmit = async (event) => {
     event.preventDefault();
     setFormError('');
     const data = new FormData(event.currentTarget);
-    const recoveryCode = data.get('recoveryCode')?.trim();
     const password = data.get('password');
     const confirmPassword = data.get('confirmPassword');
 
     const newErrors = {
-      recoveryCode: '',
       password: '',
       confirmPassword: ''
     };
 
-    if (!recoveryCode) newErrors.recoveryCode = 'Recovery code is required.';
     if (!password) newErrors.password = 'Password is required.';
     if (password !== confirmPassword) {
       newErrors.confirmPassword = 'Passwords do not match.';
@@ -50,7 +59,7 @@ export default function ResetPasswordPage() {
 
     setLoading(true);
     try {
-      await resetPassword(idNumber, recoveryCode, password);
+      await resetPassword(token, password);
       navigate('/login');
     } catch (err) {
       setFormError(err.error || 'Failed to reset password');
@@ -59,22 +68,26 @@ export default function ResetPasswordPage() {
     }
   };
 
+  if (loading) {
+    return <AuthWrapper title="Verifying..."><Typography>Loading...</Typography></AuthWrapper>;
+  }
+
+  if (!isValidToken) {
+    return (
+      <AuthWrapper title="Error" icon={<LockResetOutlinedIcon />}>
+        <Typography color="error" variant="h6" align="center">
+          {formError}
+        </Typography>
+      </AuthWrapper>
+    );
+  }
+
   return (
     <AuthWrapper title="Reset Password" icon={<LockResetOutlinedIcon />}>
       <Typography variant="body2" align="center" sx={{ mb: 2 }}>
-        Please enter the recovery code sent to your email and your new password.
+        Please enter your new password.
       </Typography>
       <Box component="form" onSubmit={handleSubmit} noValidate>
-        <TextField
-          margin="normal"
-          required
-          fullWidth
-          id="recoveryCode"
-          label="Recovery Code"
-          name="recoveryCode"
-          error={!!errors.recoveryCode}
-          helperText={errors.recoveryCode}
-        />
         <TextField
           margin="normal"
           required

@@ -9,15 +9,20 @@ export default function AuthRoute({ children }) {
   const navigate = useNavigate();
 
   useEffect(() => {
-    const checkAuth = async () => {
-      try {
-        await getCurrentUser();
-        navigate("/dashboard", { replace: true });
-      } catch {
-        setChecking(false);
-      }
-    };
-    checkAuth();
+    const token = localStorage.getItem("token");
+    if (token) {
+      const checkAuth = async () => {
+        try {
+          await getCurrentUser();
+          navigate("/dashboard", { replace: true });
+        } catch {
+          setChecking(false);
+        }
+      };
+      checkAuth();
+    } else {
+      setChecking(false);
+    }
   }, [navigate]);
 
   if (checking) {
