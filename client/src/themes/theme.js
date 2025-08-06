@@ -7,33 +7,43 @@ const palette = {
   mediumBlue: "#749BC2",
   darkBlue: "#4682A9",
   white: "#FFFFFF",
-  black: "#212121", // A softer black for text
-  errorRed: "#d32f2f", // MUI's standard error red
+  black: "#212121",
+  errorRed: "#d32f2f",
+  sidebarBg: "#ebddbc", // Sidebar background
+  sidebarHover: "rgba(70, 130, 169, 0.08)", // Hover effect
+  sidebarActive: "rgba(70, 130, 169, 0.15)", // Active link highlight
+  sidebarText: "#4682A9", // Text & icons
 };
 
 const theme = createTheme({
   palette: {
     primary: {
-      main: palette.darkBlue, // Prominent, for key UI elements
-      contrastText: palette.white, // Text on primary color
+      main: palette.darkBlue,
+      contrastText: palette.white,
     },
     secondary: {
-      main: palette.mediumBlue, // Used for secondary actions
-      contrastText: palette.white, // Text on secondary color
+      main: palette.mediumBlue,
+      contrastText: palette.white,
     },
     error: {
       main: palette.errorRed,
     },
     background: {
-      default: palette.cream, // The main background color
-      paper: palette.white, // Color for components like Cards and Menus
+      default: palette.cream,
+      paper: palette.white,
     },
     text: {
-      primary: palette.black, // Main text color
-      secondary: palette.mediumBlue, // Secondary, less important text
+      primary: palette.black,
+      secondary: palette.mediumBlue,
     },
     accent: {
       main: palette.lightBlue,
+    },
+    sidebar: {
+      background: palette.sidebarBg,
+      hover: palette.sidebarHover,
+      active: palette.sidebarActive,
+      text: palette.sidebarText,
     },
   },
   typography: {
@@ -44,6 +54,20 @@ const theme = createTheme({
     },
   },
   components: {
+    MuiLink: {
+      styleOverrides: {
+        root: {
+          color: "inherit",
+          textDecoration: "none",
+          "&:visited": {
+            color: "inherit",
+          },
+          "&:active": {
+            color: "inherit",
+          },
+        },
+      },
+    },
     MuiButton: {
       styleOverrides: {
         root: {

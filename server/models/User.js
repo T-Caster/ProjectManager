@@ -6,6 +6,7 @@ const userSchema = new mongoose.Schema({
   idNumber: { type: String, unique: true, maxLength: 9, minLength: 9 },
   role: { type: String, enum: ["student", "mentor", "hod"], default: 'student' },
   password: String,
+  mentor: { type: mongoose.Schema.Types.ObjectId, ref: 'User', default: null },
   recoveryCode: String,
   resetPasswordToken: String,
   resetPasswordExpires: Date,

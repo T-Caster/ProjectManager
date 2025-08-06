@@ -140,7 +140,7 @@ router.delete("/delete-user", authMiddleware, async (req, res) => {
 // Get current user info (without sensitive data)
 router.get("/me", authMiddleware, async (req, res) => {
   try {
-    const user = await User.findById(req.user.id).select("-password -recoveryCode");
+    const user = await User.findById(req.user.id).populate("mentor", "fullName").select("-password -recoveryCode -resetPasswordToken -resetPasswordExpires");
     if (!user) return res.status(404).json({ error: "User not found" });
     res.json(user);
   } catch (err) {
@@ -204,6 +204,17 @@ router.put("/edit-profile", authMiddleware, async (req, res) => {
     res.json({ message: "Profile updated", user });
   } catch (err) {
     res.status(500).json({ error: "Failed to update profile" });
+  }
+});
+
+// Get user by ID
+router.get("/user/:id", authMiddleware, async (req, res) => {
+  try {
+    const user = await User.findById(req.params.id).select("-password -recoveryCode -resetPasswordToken -resetPasswordExpires -idNumber");
+    if (!user) return res.status(404).json({ error: "User not found" });
+    res.json(user);
+  } catch (err) {
+    res.status(500).json({ error: "Server error" });
   }
 });
 

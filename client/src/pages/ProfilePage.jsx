@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { useParams } from "react-router-dom";
 import {
     Box,
     Avatar,
@@ -11,10 +12,12 @@ import {
     Button,
     Alert,
 } from "@mui/material";
-import { getCurrentUser, editProfile, uploadProfilePic, resetProfilePic } from "../services/authService";
+import { getCurrentUser, editProfile, uploadProfilePic, resetProfilePic, getUserById } from "../services/authService";
 
 export default function ProfilePage() {
+    const { id } = useParams();
     const [user, setUser] = useState(null);
+    const [isCurrentUser, setIsCurrentUser] = useState(false);
     const [editMode, setEditMode] = useState(false);
     const [loading, setLoading] = useState(true);
     const [form, setForm] = useState({
@@ -31,20 +34,27 @@ export default function ProfilePage() {
     const [pendingRemovePic, setPendingRemovePic] = useState(false);
 
     useEffect(() => {
-        getCurrentUser()
-            .then(u => {
-                setUser(u);
+        const fetchUser = async () => {
+            try {
+                const userData = id ? await getUserById(id) : await getCurrentUser();
+                setUser(userData);
                 setForm({
-                    fullName: u.fullName || "",
-                    email: u.email || "",
-                    idNumber: u.idNumber || "",
+                    fullName: userData.fullName || "",
+                    email: userData.email || "",
+                    idNumber: userData.idNumber || "",
                     password: "",
                     confirmPassword: "",
                 });
-                setProfilePicPreview(u.profilePic);
-            })
-            .finally(() => setLoading(false));
-    }, []);
+                setProfilePicPreview(userData.profilePic);
+                if (!id) setIsCurrentUser(true);
+            } catch (err) {
+                console.error("Failed to fetch user", err);
+            } finally {
+                setLoading(false);
+            }
+        };
+        fetchUser();
+    }, [id]);
 
     const handleChange = e => {
         setFormError("");
@@ -165,9 +175,8 @@ export default function ProfilePage() {
         <Box
             display="flex"
             justifyContent="center"
-            alignItems="center"
-            minHeight="90vh"
-            sx={{ backgroundColor: "background.default", px: 2 }}
+            alignItems="flex-start"
+            sx={{ backgroundColor: "background.default", px: 2, pt: 4 }}
         >
             <Paper
                 elevation={6}
@@ -279,15 +288,17 @@ export default function ProfilePage() {
                     ) : (
                         <Stack spacing={2} width="100%">
                             <InfoRow label="Email" value={user.email} />
-                            <InfoRow label="ID Number" value={user.idNumber} />
+                            {isCurrentUser && <InfoRow label="ID Number" value={user.idNumber} />}
                             <InfoRow label="Role" value={user.role} />
-                            <Button
-                                variant="contained"
-                                onClick={handleEdit}
-                                sx={{ alignSelf: "flex-end", mt: 2 }}
-                            >
-                                Edit Profile
-                            </Button>
+                            {isCurrentUser && (
+                                <Button
+                                    variant="contained"
+                                    onClick={handleEdit}
+                                    sx={{ alignSelf: "flex-end", mt: 2 }}
+                                >
+                                    Edit Profile
+                                </Button>
+                            )}
                             {formSuccess && <Alert severity="success">{formSuccess}</Alert>}
                         </Stack>
                     )}

@@ -126,3 +126,12 @@ export const resetProfilePic = async () => {
         throw error.response?.data || { error: "Failed to reset profile picture" };
     }
 }
+
+export const getUserById = async (id) => {
+    try {
+        const response = await axios.get(`/auth/user/${id}`);
+        return response.data;
+    } catch (error) {
+        throw error.response?.data || { error: "Failed to fetch user" };
+    }
+}

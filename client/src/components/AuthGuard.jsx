@@ -1,14 +1,21 @@
-import { useEffect, useState } from "react";
+import { useEffect, useContext } from "react";
 import { useNavigate } from "react-router-dom";
 import { getCurrentUser } from "../services/authService";
 import { AuthUserContext } from "../contexts/AuthUserContext";
 import CircularProgress from "@mui/material/CircularProgress";
 import Box from "@mui/material/Box";
+import { initSocket, disconnectSocket } from "../services/socketService";
 
 export default function AuthGuard({ children }) {
-  const [user, setUser] = useState(null);
-  const [loading, setLoading] = useState(true);
+  const { user, setUser, loading, setLoading } = useContext(AuthUserContext);
   const navigate = useNavigate();
+
+  const logout = () => {
+    localStorage.removeItem("token");
+    setUser(null);
+    disconnectSocket();
+    navigate("/login");
+  };
 
   useEffect(() => {
     const token = localStorage.getItem("token");
@@ -22,13 +29,13 @@ export default function AuthGuard({ children }) {
         const userData = await getCurrentUser();
         setUser(userData);
       } catch (err) {
-        navigate("/login", { replace: true });
+        logout();
       } finally {
         setLoading(false);
       }
     };
     checkAuth();
-  }, [navigate]);
+  }, []);
 
   if (loading) {
     return (
@@ -38,9 +45,5 @@ export default function AuthGuard({ children }) {
     );
   }
 
-  return (
-    <AuthUserContext.Provider value={user}>
-      {children}
-    </AuthUserContext.Provider>
-  );
+  return children;
 }
