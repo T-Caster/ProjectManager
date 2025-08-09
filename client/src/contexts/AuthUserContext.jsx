@@ -20,8 +20,14 @@ export const AuthUserProvider = ({ children }) => {
     };
   }, []);
 
+  const logout = () => {
+    localStorage.removeItem("token");
+    setUser(null);
+    disconnectSocket();
+  };
+
   return (
-    <AuthUserContext.Provider value={{ user, loading, setUser, setLoading }}>
+    <AuthUserContext.Provider value={{ user, loading, setUser, setLoading, logout }}>
       {children}
     </AuthUserContext.Provider>
   );
