@@ -40,8 +40,10 @@ export default function App() {
         </Route>
 
         {/* Mentor Routes */}
-        <Route element={<RoleBasedGuard roles={['mentor']} />}>
+        <Route element={<RoleBasedGuard roles={['mentor', 'hod']} />}>
           <Route path="/my-students" element={<MyStudentsPage />} />
+        </Route>
+        <Route element={<RoleBasedGuard roles={['mentor']} />}>
           <Route path="/meetings" element={<MeetingsPage />} />
         </Route>
 

@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { useParams } from "react-router-dom";
+import { useParams, useNavigate } from "react-router-dom";
 import {
     Box,
     Avatar,
@@ -11,11 +11,16 @@ import {
     TextField,
     Button,
     Alert,
+    Link,
 } from "@mui/material";
 import { getCurrentUser, editProfile, uploadProfilePic, resetProfilePic, getUserById } from "../services/authService";
+import { useAuthUser } from "../contexts/AuthUserContext";
+import formatRole from "../utils/formatRole";
 
 export default function ProfilePage() {
     const { id } = useParams();
+    const { user: authUser } = useAuthUser();
+    const navigate = useNavigate();
     const [user, setUser] = useState(null);
     const [isCurrentUser, setIsCurrentUser] = useState(false);
     const [editMode, setEditMode] = useState(false);
@@ -288,8 +293,23 @@ export default function ProfilePage() {
                     ) : (
                         <Stack spacing={2} width="100%">
                             <InfoRow label="Email" value={user.email} />
-                            {isCurrentUser && <InfoRow label="ID Number" value={user.idNumber} />}
-                            <InfoRow label="Role" value={user.role} />
+                            {(isCurrentUser || authUser?.role === 'hod' || (authUser?.role === 'mentor' && user?.mentor?._id === authUser?._id)) && <InfoRow label="ID Number" value={user.idNumber} />}
+                            <InfoRow label="Role" value={formatRole(user.role)} />
+                            {user.mentor && (
+                                <Box display="flex" justifyContent="space-between" alignItems="center">
+                                    <Typography color="text.secondary" fontWeight={500}>
+                                        Mentor
+                                    </Typography>
+                                    <Link
+                                        component="button"
+                                        variant="body1"
+                                        onClick={() => navigate(`/profile/${user.mentor._id}`)}
+                                        sx={{ fontWeight: 500 }}
+                                    >
+                                        {user.mentor.fullName}
+                                    </Link>
+                                </Box>
+                            )}
                             {isCurrentUser && (
                                 <Button
                                     variant="contained"

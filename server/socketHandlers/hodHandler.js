@@ -21,8 +21,15 @@ module.exports = (io, socket, users) => {
       }
       if (users[request.mentor]) {
         io.to(users[request.mentor]).emit('status:update', updatedRequest);
+        io.to(users[request.mentor]).emit('student:new', student);
       }
       io.to(socket.id).emit('request:updated', updatedRequest);
+
+      // Notify HOD about the new student
+      const hods = Object.keys(users).filter(id => users[id].role === 'hod');
+      hods.forEach(hodId => {
+        io.to(users[hodId].socketId).emit('student:new', student);
+      });
     } catch (err) {
       socket.emit('error', { message: 'Failed to approve request' });
     }
@@ -44,6 +51,18 @@ module.exports = (io, socket, users) => {
       io.to(socket.id).emit('request:updated', updatedRequest);
     } catch (err) {
       socket.emit('error', { message: 'Failed to reject request' });
+    }
+  });
+
+  socket.on('student:update', async (updatedStudent) => {
+    try {
+      // Notify HOD about the student update
+      const hods = Object.keys(users).filter(id => users[id].role === 'hod');
+      hods.forEach(hodId => {
+        io.to(users[hodId].socketId).emit('student:updated', updatedStudent);
+      });
+    } catch (err) {
+      socket.emit('error', { message: 'Failed to notify HODs about student update' });
     }
   });
 };

@@ -210,9 +210,24 @@ router.put("/edit-profile", authMiddleware, async (req, res) => {
 // Get user by ID
 router.get("/user/:id", authMiddleware, async (req, res) => {
   try {
-    const user = await User.findById(req.params.id).select("-password -recoveryCode -resetPasswordToken -resetPasswordExpires -idNumber");
-    if (!user) return res.status(404).json({ error: "User not found" });
-    res.json(user);
+    const requestingUser = await User.findById(req.user.id);
+    const targetUser = await User.findById(req.params.id).populate('mentor', 'fullName').select("-password -recoveryCode -resetPasswordToken -resetPasswordExpires");
+
+    if (!targetUser) {
+      return res.status(404).json({ error: "User not found" });
+    }
+
+    const isOwner = req.user.id === targetUser._id.toString();
+    const isHod = requestingUser.role === 'hod';
+    const isMentorOfStudent = requestingUser.role === 'mentor' && targetUser.mentor && targetUser.mentor._id.toString() === req.user.id;
+
+    if (isOwner || isHod || isMentorOfStudent) {
+      return res.json(targetUser);
+    }
+
+    const userObject = targetUser.toObject();
+    delete userObject.idNumber;
+    res.json(userObject);
   } catch (err) {
     res.status(500).json({ error: "Server error" });
   }

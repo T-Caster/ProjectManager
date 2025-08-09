@@ -169,7 +169,7 @@ const ChooseMentorModal = ({ open, handleClose, onMentorRequested }) => {
                         <ListItemText
                           primary={mentor.fullName}
                           primaryTypographyProps={{ fontWeight: 500 }}
-                          secondary={`Students: ${mentor.students?.length || 0}`}
+                          secondary={`Students: ${mentor.students}`}
                         />
                       </Grid>
                     </Grid>

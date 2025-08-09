@@ -42,6 +42,7 @@ const hodMenuItems = [
     { text: 'Profile', icon: <PersonIcon />, path: '/profile' },
     { text: 'Mentor Requests', icon: <NoteAddIcon />, path: '/mentor-requests' },
     { text: 'All Projects', icon: <AssignmentIcon />, path: '/all-projects' },
+    { text: 'All Students', icon: <GroupIcon />, path: '/my-students' },
 ];
 
 const Sidebar = () => {
