@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import {
   Container,
   Typography,
@@ -17,14 +17,48 @@ import {
   IconButton,
 } from '@mui/material';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
+import DownloadIcon from '@mui/icons-material/Download';
+import SchoolIcon from '@mui/icons-material/School';
+import PersonIcon from '@mui/icons-material/Person';
+import GroupIcon from '@mui/icons-material/Group';
+import AssignmentIcon from '@mui/icons-material/Assignment';
 import { useParams, useNavigate } from 'react-router-dom';
 import { getProposalById, approveProposal, rejectProposal } from '../services/proposalService';
 import { getAllMentors } from '../services/mentorService';
+import axios from '../utils/axios';
 
-const SectionCard = ({ title, step, children }) => (
-  <Paper elevation={1} sx={{ p: 3 }}>
-    <Stack direction="row" alignItems="center" spacing={1} sx={{ mb: 2 }}>
-      {typeof step === 'number' && <Chip size="small" color="primary" label={step} />}
+const safeDate = (d) => {
+  if (!d) return '';
+  const dt = new Date(d);
+  return Number.isNaN(dt.getTime()) ? '' : dt.toLocaleDateString();
+};
+const safeDateTime = (d) => {
+  if (!d) return '';
+  const dt = new Date(d);
+  return Number.isNaN(dt.getTime()) ? '' : dt.toLocaleString();
+};
+const statusColor = (status) => {
+  switch (status) {
+    case 'Pending': return 'warning';
+    case 'Approved': return 'success';
+    case 'Rejected': return 'error';
+    case 'Draft': default: return 'info';
+  }
+};
+
+const SectionCard = ({ title, icon, children }) => (
+  <Paper
+    elevation={0}
+    sx={(theme) => ({
+      p: 3,
+      borderRadius: 3,
+      border: '1px solid',
+      borderColor: 'divider',
+      backgroundColor: theme.palette.background.paper,
+    })}
+  >
+    <Stack direction="row" spacing={1} alignItems="center" sx={{ mb: 2 }}>
+      {icon}
       <Typography variant="h6">{title}</Typography>
     </Stack>
     <Divider sx={{ mb: 2 }} />
@@ -32,16 +66,60 @@ const SectionCard = ({ title, step, children }) => (
   </Paper>
 );
 
-const InfoRow = ({ label, value }) => (
-  <Grid item xs={12} sm={6}>
-    <Typography variant="body2" color="text.secondary">{label}</Typography>
-    <Typography variant="body1">{value}</Typography>
+const InfoItem = ({ label, value, fullWidth = false }) => (
+  <Grid size={{ xs: 12, sm: fullWidth ? 12 : 6 }}>
+    <Typography variant="body2" color="text.secondary" gutterBottom>
+      {label}
+    </Typography>
+    <Typography variant="body1">{value ?? 'N/A'}</Typography>
   </Grid>
 );
+
+const FileChip = ({ file, onError }) => {
+  if (!file) return null;
+
+  const handleDownload = async () => {
+    try {
+      const res = await axios.get(`/proposals/file/${file.fileId}`, { responseType: 'blob' });
+      const contentType = res.headers['content-type'] || 'application/pdf';
+      let filename = file.filename || 'attachment.pdf';
+      const cd = res.headers['content-disposition'];
+      if (cd) {
+        const m = /filename\*?=(?:UTF-8'')?["']?([^"';]+)["']?/i.exec(cd);
+        if (m && m[1]) {
+          try { filename = decodeURIComponent(m[1]); } catch { }
+        }
+      }
+      const blob = new Blob([res.data], { type: contentType });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = filename;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(url);
+    } catch (err) {
+      console.error(err);
+      onError?.(err?.response?.data?.msg || 'Failed to download attachment.');
+    }
+  };
+
+  return (
+    <Chip
+      icon={<DownloadIcon />}
+      label={file.filename || 'attachment.pdf'}
+      variant="outlined"
+      onClick={handleDownload}
+      sx={{ cursor: 'pointer' }}
+    />
+  );
+};
 
 const ProposalReviewPage = () => {
   const { proposalId } = useParams();
   const navigate = useNavigate();
+
   const [proposal, setProposal] = useState(null);
   const [mentors, setMentors] = useState([]);
   const [selectedMentor, setSelectedMentor] = useState('');
@@ -50,9 +128,40 @@ const ProposalReviewPage = () => {
   const [isActionLoading, setIsActionLoading] = useState(false);
   const [error, setError] = useState('');
 
+  // Derived labels
+  const authorName = useMemo(
+    () => proposal?.author?.fullName ?? proposal?.authorSnapshot?.fullName ?? '—',
+    [proposal]
+  );
+  const authorId = useMemo(
+    () => proposal?.author?.idNumber ?? proposal?.authorSnapshot?.idNumber ?? '—',
+    [proposal]
+  );
+  const authorEmail = useMemo(
+    () => proposal?.author?.email ?? '',
+    [proposal]
+  );
+  const coName = useMemo(
+    () => proposal?.coStudentSnapshot?.fullName ?? proposal?.coStudent?.fullName ?? '',
+    [proposal]
+  );
+  const coId = useMemo(
+    () => proposal?.coStudentSnapshot?.idNumber ?? proposal?.coStudent?.idNumber ?? '',
+    [proposal]
+  );
+  const coEmail = useMemo(
+    () => proposal?.coStudent?.email ?? '',
+    [proposal]
+  );
+
+  const locked = useMemo(
+    () =>  proposal?.status !== 'Pending'
+  , [proposal]);
+
   useEffect(() => {
     const fetchData = async () => {
       setIsLoading(true);
+      setError('');
       try {
         const [{ data: proposalData }, { data: mentorsData }] = await Promise.all([
           getProposalById(proposalId),
@@ -62,7 +171,7 @@ const ProposalReviewPage = () => {
         setMentors(mentorsData);
         setSelectedMentor(proposalData.suggestedMentor?._id || '');
       } catch (err) {
-        setError('Failed to load proposal details.');
+        setError('Failed to load proposal details. It may have been removed or processed.');
         console.error(err);
       } finally {
         setIsLoading(false);
@@ -77,11 +186,13 @@ const ProposalReviewPage = () => {
       return;
     }
     setIsActionLoading(true);
+    setError('');
     try {
       await approveProposal(proposalId, selectedMentor);
       navigate('/proposals-queue');
     } catch (err) {
       setError(err.response?.data?.msg || 'Failed to approve proposal.');
+    } finally {
       setIsActionLoading(false);
     }
   };
@@ -92,103 +203,226 @@ const ProposalReviewPage = () => {
       return;
     }
     setIsActionLoading(true);
+    setError('');
     try {
       await rejectProposal(proposalId, rejectionReason);
       navigate('/proposals-queue');
     } catch (err) {
       setError(err.response?.data?.msg || 'Failed to reject proposal.');
+    } finally {
       setIsActionLoading(false);
     }
   };
 
-  if (isLoading) return <CircularProgress />;
-  if (error && !proposal) return <Alert severity="error">{error}</Alert>;
-  if (!proposal) return <Alert severity="info">Proposal not found.</Alert>;
+  if (isLoading) {
+    return (
+      <Box display="flex" justifyContent="center" alignItems="center" minHeight="50vh">
+        <CircularProgress />
+      </Box>
+    );
+  }
+
+  if (error && !proposal) {
+    return (
+      <Container maxWidth="md" sx={{ py: 4 }}>
+        <Alert severity="error">{error}</Alert>
+        <Button startIcon={<ArrowBackIcon />} onClick={() => navigate('/proposals-queue')} sx={{ mt: 2 }}>
+          Back to Queue
+        </Button>
+      </Container>
+    );
+  }
+
+  if (!proposal) return null;
+
+  const attachment = proposal.attachments?.[0] || null;
 
   return (
-    <Container maxWidth="md" sx={{ py: 4 }}>
-      <Stack direction="row" spacing={1} alignItems="center" sx={{ mb: 2 }}>
-        <Tooltip title="Back to Queue">
-          <IconButton onClick={() => navigate('/proposals-queue')} aria-label="Back">
-            <ArrowBackIcon />
-          </IconButton>
-        </Tooltip>
-        <Typography variant="h4">Review Proposal</Typography>
-      </Stack>
+    <Container maxWidth="lg" sx={{ py: 4 }}>
+      {/* Header */}
+      <Paper
+        elevation={0}
+        sx={(theme) => ({
+          p: 3,
+          mb: 3,
+          borderRadius: 3,
+          border: '1px solid',
+          borderColor: 'divider',
+          background: theme.palette.background.paper,
+        })}
+      >
+        <Stack direction={{ xs: 'column', md: 'row' }} justifyContent="space-between" spacing={2}>
+          <Stack spacing={1}>
+            <Typography variant="overline" color="text.secondary">Review Proposal</Typography>
+            <Typography variant="h4" sx={{ lineHeight: 1.2 }}>{proposal.projectName || 'Untitled Project'}</Typography>
+            <Stack direction="row" spacing={1} alignItems="center">
+              <Chip size="small" color={statusColor(proposal.status)} label={proposal.status || 'Draft'} />
+              {!!proposal.submittedAt && (
+                <Typography variant="body2" color="text.secondary">
+                  Submitted / Updated {safeDateTime(proposal.submittedAt)}
+                </Typography>
+              )}
+              {!!proposal.reviewedAt && (
+                <Typography variant="body2" color="text.secondary">
+                  • Reviewed {safeDateTime(proposal.reviewedAt)}
+                </Typography>
+              )}
+            </Stack>
+          </Stack>
+        </Stack>
+      </Paper>
 
-      <Stack spacing={3}>
-        <SectionCard title="Project Basics" step={1}>
-          <Typography variant="h5" gutterBottom>{proposal.projectName}</Typography>
-          <Typography paragraph><strong>Background:</strong> {proposal.background}</Typography>
-          <Typography paragraph><strong>Objectives:</strong> {proposal.objectives}</Typography>
-          <Typography paragraph><strong>Market Review:</strong> {proposal.marketReview}</Typography>
-          <Typography paragraph><strong>New/Improved Aspects:</strong> {proposal.newOrImproved}</Typography>
+      {proposal?.approval?.reason && (
+        <SectionCard title="Rejection Details">
+          <Alert severity="error">
+            <Typography variant="subtitle2" sx={{ mb: 0.5 }}>Reason</Typography>
+            <Typography variant="body2">{proposal.approval.reason}</Typography>
+            {!!proposal.reviewedAt && (
+              <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 1 }}>
+                Reviewed {safeDateTime(proposal.reviewedAt)}
+              </Typography>
+            )}
+          </Alert>
         </SectionCard>
+      )}
 
-        <SectionCard title="Student Details" step={2}>
-          <Grid container spacing={2}>
-            <InfoRow label="Author Name" value={proposal.author.fullName} />
-            <InfoRow label="Author ID" value={proposal.author.idNumber} />
-            <InfoRow label="Author Email" value={proposal.author.email} />
-            <InfoRow label="End of Studies" value={new Date(proposal.authorSnapshot.endOfStudies).toLocaleDateString()} />
-          </Grid>
-          {proposal.coStudent && (
-            <>
-              <Divider sx={{ my: 2 }} />
-              <Grid container spacing={2}>
-                <InfoRow label="Co-Student Name" value={proposal.coStudent.fullName} />
-                <InfoRow label="Co-Student ID" value={proposal.coStudent.idNumber} />
-                <InfoRow label="Co-Student Email" value={proposal.coStudent.email} />
-              </Grid>
-            </>
-          )}
-        </SectionCard>
+      <Grid container spacing={2}>
+        {/* Left column */}
+        <Grid size={{ xs: 12, md: 8 }}>
+          <SectionCard title="Project Details" icon={<AssignmentIcon color="primary" />}>
+            <Stack spacing={2}>
+              <Typography><strong>Background:</strong> {proposal.background || '—'}</Typography>
+              <Typography><strong>Objectives:</strong> {proposal.objectives || '—'}</Typography>
+              <Typography><strong>Market Review:</strong> {proposal.marketReview || '—'}</Typography>
+              <Typography><strong>New/Improved Aspects:</strong> {proposal.newOrImproved || '—'}</Typography>
+            </Stack>
+          </SectionCard>
 
-        <SectionCard title="Mentor Suggestion" step={3}>
-          <Typography>
-            {proposal.suggestedMentor ? `Suggested Mentor: ${proposal.suggestedMentor.fullName}` : 'No mentor was suggested.'}
-          </Typography>
-        </SectionCard>
-
-        <SectionCard title="HOD Actions" step={4}>
-          <Grid container spacing={2} alignItems="center">
-            <Grid item xs={12} sm={8}>
-              <TextField
-                select
-                fullWidth
-                label="Assign/Confirm Mentor"
-                value={selectedMentor}
-                onChange={(e) => setSelectedMentor(e.target.value)}
-              >
-                {mentors.map((mentor) => (
-                  <MenuItem key={mentor._id} value={mentor._id}>{mentor.fullName}</MenuItem>
-                ))}
-              </TextField>
+          <SectionCard title="Status & Timeline">
+            <Grid container spacing={2}>
+              <InfoItem label="Status" value={proposal.status} />
+              <InfoItem label="Created At" value={safeDateTime(proposal.createdAt)} />
+              <InfoItem label="Submitted At" value={safeDateTime(proposal.submittedAt)} />
+              <InfoItem label="Reviewed At" value={safeDateTime(proposal.reviewedAt)} />
+              <InfoItem label="Last Updated" value={safeDateTime(proposal.updatedAt)} />
             </Grid>
-            <Grid item xs={12} sm={4}>
-              <Button variant="contained" color="success" onClick={handleApprove} disabled={isActionLoading} fullWidth>
-                Approve
-              </Button>
-            </Grid>
-            <Grid item xs={12}>
-              <TextField
-                fullWidth
-                multiline
-                rows={3}
-                label="Rejection Reason"
-                value={rejectionReason}
-                onChange={(e) => setRejectionReason(e.target.value)}
+          </SectionCard>
+
+          <SectionCard title="Mentor & Attachment" icon={<SchoolIcon color="primary" />}>
+            <Grid container spacing={2}>
+              <InfoItem
+                label="Suggested Mentor"
+                value={proposal.suggestedMentor ? proposal.suggestedMentor.fullName : 'No mentor suggested'}
               />
+              <Grid size={{ xs: 12, sm: 6 }}>
+                <Typography variant="body2" color="text.secondary" gutterBottom>Proposal PDF</Typography>
+                {attachment
+                  ? <FileChip file={attachment} onError={setError} />
+                  : <Typography variant="body1">No attachment provided.</Typography>}
+              </Grid>
             </Grid>
-            <Grid item xs={12}>
-              <Button variant="contained" color="error" onClick={handleReject} disabled={isActionLoading || !rejectionReason} fullWidth>
-                Reject
-              </Button>
+          </SectionCard>
+        </Grid>
+
+        {/* Right column */}
+        <Grid size={{ xs: 12, md: 4 }}>
+          <SectionCard title="Student Information" icon={<PersonIcon color="primary" />}>
+            <Grid container spacing={2}>
+              <InfoItem label="Author Name" value={authorName} />
+              <InfoItem label="Author ID" value={authorId} />
+              <InfoItem label="Author Email" value={authorEmail} />
+              <InfoItem label="End of Studies" value={safeDate(proposal.endOfStudies)} />
+              <InfoItem label="Address" value={proposal.address} />
+              <InfoItem label="Mobile Phone" value={proposal.mobilePhone} />
             </Grid>
-          </Grid>
-        </SectionCard>
-        {error && <Alert severity="error" sx={{ mt: 2 }}>{error}</Alert>}
-      </Stack>
+
+            {(proposal.coStudent || proposal.coStudentSnapshot) && (
+              <>
+                <Divider sx={{ my: 2 }} />
+                <Stack direction="row" spacing={1} alignItems="center" sx={{ mb: 1 }}>
+                  <GroupIcon color="secondary" />
+                  <Typography variant="subtitle1">Co-Student</Typography>
+                </Stack>
+                <Grid container spacing={2}>
+                  <InfoItem label="Name" value={coName} />
+                  <InfoItem label="ID Number" value={coId} />
+                  <InfoItem label="Email" value={coEmail} />
+                </Grid>
+              </>
+            )}
+          </SectionCard>
+
+          <SectionCard title="HOD Actions">
+            <Grid container spacing={2} alignItems="flex-start">
+              <Grid size={{ xs: 12 }}>
+                <TextField
+                  select
+                  fullWidth
+                  label="Assign/Confirm Mentor"
+                  value={selectedMentor}
+                  onChange={(e) => setSelectedMentor(e.target.value)}
+                  helperText={locked ? 'Locked (proposal is not Pending)' : (!selectedMentor ? 'A mentor must be assigned for approval' : '')}
+                  error={!locked && !selectedMentor}
+                  disabled={locked}
+                >
+                  {mentors.map((mentor) => (
+                    <MenuItem key={mentor._id} value={mentor._id}>
+                      {mentor.fullName}
+                    </MenuItem>
+                  ))}
+                </TextField>
+              </Grid>
+
+              <Grid size={{ xs: 12 }}>
+                <Button
+                  variant="contained"
+                  color="success"
+                  onClick={handleApprove}
+                  disabled={locked || isActionLoading || !selectedMentor}
+                  fullWidth
+                >
+                  {isActionLoading ? <CircularProgress size={24} color="inherit" /> : 'Approve'}
+                </Button>
+              </Grid>
+
+              <Grid size={{ xs: 12 }}>
+                <Divider sx={{ my: 1 }} />
+              </Grid>
+
+              <Grid size={{ xs: 12 }}>
+                <TextField
+                  fullWidth
+                  multiline
+                  rows={3}
+                  label="Rejection Reason"
+                  value={rejectionReason}
+                  onChange={(e) => setRejectionReason(e.target.value)}
+                  helperText={locked ? 'Locked (proposal is not Pending)' : 'A reason is required to reject the proposal'}
+                  disabled={locked}
+                />
+              </Grid>
+
+              <Grid size={{ xs: 12 }}>
+                <Button
+                  variant="contained"
+                  color="error"
+                  onClick={handleReject}
+                  disabled={locked || isActionLoading || !rejectionReason}
+                  fullWidth
+                >
+                  {isActionLoading ? <CircularProgress size={24} color="inherit" /> : 'Reject'}
+                </Button>
+              </Grid>
+
+              {error && (
+                <Grid size={{ xs: 12 }}>
+                  <Alert severity="error">{error}</Alert>
+                </Grid>
+              )}
+            </Grid>
+          </SectionCard>
+        </Grid>
+      </Grid>
     </Container>
   );
 };

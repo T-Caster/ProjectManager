@@ -1,11 +1,9 @@
-import React, { createContext, useContext, useState, useEffect } from 'react';
+import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import { useAuthUser } from './AuthUserContext';
 import { getMyProposals, getProposalQueue } from '../services/proposalService';
 import { socket } from '../services/socketService';
 
-const ProposalContext = createContext();
-
-export const useProposals = () => useContext(ProposalContext);
+export const ProposalContext = createContext();
 
 export const ProposalProvider = ({ children }) => {
   const { user } = useAuthUser();
@@ -13,10 +11,12 @@ export const ProposalProvider = ({ children }) => {
   const [pendingProposals, setPendingProposals] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
 
-  const fetchProposals = async () => {
+  const fetchProposals = useCallback(async () => {
+    if (!user) return;
     setIsLoading(true);
     try {
       if (user.role === 'student') {
+        console.log("approved!")
         const { data } = await getMyProposals();
         setMyProposals(data);
       } else if (user.role === 'hod') {
@@ -28,38 +28,75 @@ export const ProposalProvider = ({ children }) => {
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [user]);
 
   useEffect(() => {
-    if (user) {
+    fetchProposals();
+  }, [fetchProposals]);
+
+  // De-dup helper by _id
+  const addOrMoveTop = useCallback((list, item) => {
+    const seen = new Set();
+    const out = [item, ...list.filter(p => {
+      if (!p || !p._id) return false;
+      if (p._id === item._id) return false;
+      if (seen.has(p._id)) return false;
+      seen.add(p._id);
+      return true;
+    })];
+    return out;
+  }, []);
+
+  useEffect(() => {
+    if (!user || !socket) return;
+
+    const refetchOnFocus = () => {
+      if (document.visibilityState === 'visible') fetchProposals();
+    };
+    document.addEventListener('visibilitychange', refetchOnFocus);
+
+    const onConnect = () => {
+      // re-sync on (re)connect
       fetchProposals();
+    };
 
-      // Socket listeners
-      socket.on('new_pending_proposal', (newProposal) => {
-        if (user.role === 'hod') {
-          setPendingProposals(prev => [newProposal, ...prev]);
-        }
-      });
+    const handleNewPendingProposal = (newProposal) => {
+      if (user?.role === 'hod') {
+        setPendingProposals(prev => addOrMoveTop(prev, newProposal));
+      }
+    };
 
-      socket.on('proposal_approved', (approvedProject) => {
-        // For student: refetch their proposals to see the status change
-        // For HOD: remove from pending list
-        fetchProposals(); 
-      });
+    const handleProposalProcessed = ({ proposalId }) => {
+      if (user?.role === 'hod') {
+        setPendingProposals(prev => prev.filter(p => p._id !== proposalId));
+      }
+    };
 
-      socket.on('proposal_rejected', (rejectedProposal) => {
-        // For student: refetch to see status and reason
-        // For HOD: remove from pending list
+    const handleMyProposalUpdate = () => {
+      if (user?.role === 'student') {
         fetchProposals();
-      });
+      }
+    };
 
-      return () => {
-        socket.off('new_pending_proposal');
-        socket.off('proposal_approved');
-        socket.off('proposal_rejected');
-      };
-    }
-  }, [user]);
+    socket.on('connect', onConnect);
+    socket.on('new_pending_proposal', handleNewPendingProposal);
+    socket.on('proposal_processed', handleProposalProcessed);
+    socket.on('my_proposal_approved', handleMyProposalUpdate);
+    socket.on('my_proposal_rejected', handleMyProposalUpdate);
+
+    socket.emit('proposal:subscribe');
+
+    return () => {
+      document.removeEventListener('visibilitychange', refetchOnFocus);
+      if (socket){
+        socket.off('connect', onConnect);
+        socket.off('new_pending_proposal', handleNewPendingProposal);
+        socket.off('proposal_processed', handleProposalProcessed);
+        socket.off('my_proposal_approved', handleMyProposalUpdate);
+        socket.off('my_proposal_rejected', handleMyProposalUpdate);
+      }
+    };
+  }, [user, fetchProposals, addOrMoveTop]);
 
   const value = {
     myProposals,

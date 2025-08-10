@@ -3,40 +3,42 @@ const mongoose = require('mongoose');
 const ProposalSchema = new mongoose.Schema(
   {
     // 1) Project basic info
-    projectName: { type: String, required: true, trim: true }, // Project name is essential even for a draft
+    projectName: { type: String, required: true, trim: true },
     background: { type: String, trim: true },
     objectives: { type: String, trim: true },
     marketReview: { type: String, trim: true },
     newOrImproved: { type: String, trim: true },
 
-    // 2) Student details (author snapshots so drafts/submissions remain stable)
+    // 2) Author (user reference) and minimal snapshot (no contact fields)
     author: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true, index: true },
     authorSnapshot: {
       fullName: { type: String, trim: true },
       idNumber: { type: String, trim: true },
-      address: { type: String, trim: true },
-      mobilePhone: { type: String, trim: true },     // validate xxx-xxxxxx in service layer
-      endOfStudies: { type: Date },
     },
 
-    // 3) Optional co-student (only one; projects enforce max 2 students)
+    // 3) Contact fields for this proposal (NOT in user model, NOT snapshotted)
+    address: { type: String, trim: true },
+    mobilePhone: { type: String, trim: true },
+    endOfStudies: { type: Date },
+
+    // 4) Optional co-student
     coStudent: { type: mongoose.Schema.Types.ObjectId, ref: 'User', index: true },
     coStudentSnapshot: {
       fullName: { type: String, trim: true },
       idNumber: { type: String, trim: true },
     },
 
-    // 4) Mentor suggestion (optional) - A simple reference to an existing mentor
+    // 5) Mentor suggestion (optional)
     suggestedMentor: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
 
-    // 5) Attachments (proposal PDF, etc.)
+    // 6) Attachments (proposal PDF, etc.)
     attachments: [
       {
-        fileId: { type: String, required: true, trim: true }, // your file store key
+        fileId: { type: String, required: true, trim: true },
         kind: { type: String, enum: ['proposal_pdf', 'other'], default: 'proposal_pdf' },
         filename: { type: String, trim: true },
         mime: { type: String, trim: true },
-        size: { type: Number }, // enforce <= 4MB in service layer
+        size: { type: Number },
       },
     ],
 
@@ -55,7 +57,7 @@ const ProposalSchema = new mongoose.Schema(
       reason: { type: String, trim: true },
     },
 
-    // Bookkeeping for cleanup: when this got auto-rejected due to conflict
+    // Cleanup bookkeeping
     conflictCleanup: {
       triggeredByProposalId: { type: mongoose.Schema.Types.ObjectId, ref: 'Proposal' },
       triggeredAt: { type: Date },
@@ -64,23 +66,17 @@ const ProposalSchema = new mongoose.Schema(
   { timestamps: true }
 );
 
-/**
- * Helpful indexes:
- * - Fast queries for “pending proposals involving user X”
- */
-ProposalSchema.index(
-  { status: 1, author: 1 }
-);
-ProposalSchema.index(
-  { status: 1, coStudent: 1 }
-);
+// Helpful indexes
+ProposalSchema.index({ status: 1, author: 1 });
+ProposalSchema.index({ status: 1, coStudent: 1 });
 
-// Optional: prevent the author from having TWO Pending proposals at once (partial unique index)
+// Optional: Prevent >1 pending proposal per author
 ProposalSchema.index(
   { author: 1, status: 1 },
   { unique: true, partialFilterExpression: { status: 'Pending' } }
 );
-// Optional: also block coStudent from appearing in >1 Pending proposal (if you want strictness)
+
+// Optional: Prevent >1 pending proposal per co-student
 ProposalSchema.index(
   { coStudent: 1, status: 1 },
   { unique: true, sparse: true, partialFilterExpression: { status: 'Pending' } }

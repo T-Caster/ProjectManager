@@ -9,8 +9,12 @@ const RoleBasedGuard = ({ roles }) => {
     return <div>Loading...</div>;
   }
 
-  if (!user || !roles.includes(user.role)) {
+  if (user && !roles.includes(user.role)) {
     return <Navigate to="/dashboard" />;
+  }
+
+  if (!user) {
+    return null;
   }
 
   return <Outlet />;
