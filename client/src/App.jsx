@@ -14,8 +14,10 @@ import ScheduleMeetingPage from "./pages/ScheduleMeetingPage";
 import TasksPage from "./pages/TasksPage";
 import MyStudentsPage from "./pages/MyStudentsPage";
 import MeetingsPage from "./pages/MeetingsPage";
-import MentorRequestsPage from "./pages/MentorRequestsPage";
 import AllProjectsPage from "./pages/AllProjectsPage";
+import { ProposalProvider } from "./contexts/ProposalContext";
+import ProposalsQueuePage from "./pages/ProposalsQueuePage";
+import ProposalReviewPage from "./pages/ProposalReviewPage";
 
 export default function App() {
   return (
@@ -27,7 +29,7 @@ export default function App() {
       <Route path="/reset-password" element={<AuthRoute><ResetPasswordPage /></AuthRoute>} />
       <Route path="/reset-password/:token" element={<AuthRoute><ResetPasswordPage /></AuthRoute>} />
 
-      <Route element={<AuthGuard><DashboardLayout /></AuthGuard>}>
+      <Route element={<AuthGuard><ProposalProvider><DashboardLayout /></ProposalProvider></AuthGuard>}>
         <Route path="/dashboard" element={<DashboardPage />} />
         <Route path="/profile" element={<ProfilePage />} />
         <Route path="/profile/:id" element={<ProfilePage />} />
@@ -35,6 +37,7 @@ export default function App() {
         {/* Student Routes */}
         <Route element={<RoleBasedGuard roles={['student']} />}>
           <Route path="/propose-project" element={<ProposeProjectPage />} />
+          <Route path="/propose-project/:proposalId" element={<ProposeProjectPage />} />
           <Route path="/schedule-meeting" element={<ScheduleMeetingPage />} />
           <Route path="/tasks" element={<TasksPage />} />
         </Route>
@@ -49,8 +52,9 @@ export default function App() {
 
         {/* HOD Routes */}
         <Route element={<RoleBasedGuard roles={['hod']} />}>
-          <Route path="/mentor-requests" element={<MentorRequestsPage />} />
           <Route path="/all-projects" element={<AllProjectsPage />} />
+          <Route path="/proposals-queue" element={<ProposalsQueuePage />} />
+          <Route path="/proposal-review/:proposalId" element={<ProposalReviewPage />} />
         </Route>
       </Route>
     </Routes>

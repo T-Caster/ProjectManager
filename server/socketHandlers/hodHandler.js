@@ -1,68 +1,7 @@
-const Request = require('../models/Request');
 const User = require('../models/User');
 
 module.exports = (io, socket, users) => {
-  socket.on('request:approve', async ({ requestId }) => {
-    try {
-      const request = await Request.findById(requestId);
-      if (!request) return socket.emit('error', { message: 'Request not found' });
-
-      request.status = 'approved';
-      await request.save();
-
-      const student = await User.findById(request.student);
-      student.mentor = request.mentor;
-      await student.save();
-
-      const updatedRequest = await Request.findById(request._id).populate('student', 'fullName').populate('mentor', 'fullName');
-
-      if (users[request.student]) {
-        io.to(users[request.student]).emit('status:update', updatedRequest);
-      }
-      if (users[request.mentor]) {
-        io.to(users[request.mentor]).emit('status:update', updatedRequest);
-        io.to(users[request.mentor]).emit('student:new', student);
-      }
-      io.to(socket.id).emit('request:updated', updatedRequest);
-
-      // Notify HOD about the new student
-      const hods = Object.keys(users).filter(id => users[id].role === 'hod');
-      hods.forEach(hodId => {
-        io.to(users[hodId].socketId).emit('student:new', student);
-      });
-    } catch (err) {
-      socket.emit('error', { message: 'Failed to approve request' });
-    }
-  });
-
-  socket.on('request:reject', async ({ requestId }) => {
-    try {
-      const request = await Request.findById(requestId);
-      if (!request) return socket.emit('error', { message: 'Request not found' });
-
-      request.status = 'rejected';
-      await request.save();
-
-      const updatedRequest = await Request.findById(request._id).populate('student', 'fullName').populate('mentor', 'fullName');
-
-      if (users[request.student]) {
-        io.to(users[request.student]).emit('status:update', updatedRequest);
-      }
-      io.to(socket.id).emit('request:updated', updatedRequest);
-    } catch (err) {
-      socket.emit('error', { message: 'Failed to reject request' });
-    }
-  });
-
-  socket.on('student:update', async (updatedStudent) => {
-    try {
-      // Notify HOD about the student update
-      const hods = Object.keys(users).filter(id => users[id].role === 'hod');
-      hods.forEach(hodId => {
-        io.to(users[hodId].socketId).emit('student:updated', updatedStudent);
-      });
-    } catch (err) {
-      socket.emit('error', { message: 'Failed to notify HODs about student update' });
-    }
-  });
+  // This handler is now mostly empty as mentor requests are handled via proposals.
+  // HODs receive proposal notifications directly from the proposal router.
+  // You can add other HOD-specific real-time logic here in the future.
 };

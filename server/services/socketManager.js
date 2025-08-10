@@ -3,6 +3,7 @@ const jwt = require('jsonwebtoken');
 const User = require('../models/User');
 const mentorHandler = require('../socketHandlers/mentorHandler');
 const hodHandler = require('../socketHandlers/hodHandler');
+const proposalHandler = require('../socketHandlers/proposalHandler');
 
 const users = {}; // To map userId to socketId
 
@@ -40,6 +41,7 @@ const initSocket = (server) => {
 
     mentorHandler(io, socket, users);
     hodHandler(io, socket, users);
+    proposalHandler(io, socket, users);
 
     socket.on('disconnect', () => {
       console.log('user disconnected:', socket.user.fullName);

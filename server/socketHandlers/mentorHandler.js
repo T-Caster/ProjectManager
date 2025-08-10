@@ -1,27 +1,14 @@
-const Request = require('../models/Request');
 const User = require('../models/User');
 
 module.exports = (io, socket, users) => {
-  socket.on('mentor:request', async ({ mentorId }) => {
-    try {
-      const studentId = socket.user.id;
-      const existingRequest = await Request.findOne({ student: studentId, status: { $ne: 'rejected' } });
-      if (existingRequest) {
-        return socket.emit('error', { message: 'You already have a pending or approved request' });
-      }
-      const request = new Request({ student: studentId, mentor: mentorId });
-      await request.save();
-      const newRequest = await Request.findById(request._id).populate('student', 'fullName').populate('mentor', 'fullName');
-
-      const hods = await User.find({ role: 'hod' });
-      hods.forEach(hod => {
-        if (users[hod._id]) {
-          io.to(users[hod._id]).emit('request:new', newRequest);
-        }
-      });
-      socket.emit('request:sent', newRequest);
-    } catch (err) {
-      socket.emit('error', { message: 'Failed to send request' });
-    }
+  // Listen for when a HOD assigns this mentor to a new project
+  socket.on('new_student_assigned', (project) => {
+    // In a real application, you might trigger a push notification or an email here.
+    // For now, we'll just log it and maybe emit an event back to the mentor's client.
+    console.log(`Mentor ${socket.user.fullName} has been assigned a new project: ${project.name}`);
+    socket.emit('notification', {
+      title: 'New Project Assignment',
+      message: `You have been assigned as the mentor for the project: "${project.name}".`,
+    });
   });
 };

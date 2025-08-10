@@ -7,7 +7,6 @@ import {
   Box,
 } from '@mui/material';
 import { getMyStudents } from '../services/mentorService';
-import { getAllStudents } from '../services/hodService';
 import { useAuthUser } from '../contexts/AuthUserContext';
 import { onEvent, offEvent } from '../services/socketService';
 import StudentCard from '../components/StudentCard';
@@ -21,8 +20,9 @@ const MyStudentsPage = () => {
   useEffect(() => {
     const fetchStudents = async () => {
       try {
+        setLoading(true);
         const { data } =
-          user.role === 'hod' ? await getAllStudents() : await getMyStudents();
+          await getMyStudents();
         setStudents(data);
       } catch (err) {
         setError('Failed to fetch students');
@@ -35,24 +35,17 @@ const MyStudentsPage = () => {
       fetchStudents();
     }
 
-    const handleNewStudent = (newStudent) => {
-      setStudents((prevStudents) => [newStudent, ...prevStudents]);
+    // Listen for the event that indicates a new student has been assigned to this mentor
+    const handleNewAssignment = () => {
+      if (user.role === 'mentor') {
+        fetchStudents();
+      }
     };
 
-    const handleStudentUpdate = (updatedStudent) => {
-      setStudents((prevStudents) =>
-        prevStudents.map((student) =>
-          student._id === updatedStudent._id ? updatedStudent : student
-        )
-      );
-    };
-
-    onEvent('student:new', handleNewStudent);
-    onEvent('student:updated', handleStudentUpdate);
+    onEvent('new_student_assigned', handleNewAssignment);
 
     return () => {
-      offEvent('student:new', handleNewStudent);
-      offEvent('student:updated', handleStudentUpdate);
+      offEvent('new_student_assigned', handleNewAssignment);
     };
   }, [user]);
 
@@ -92,7 +85,7 @@ const MyStudentsPage = () => {
       ) : (
         <Grid container spacing={2}>
           {students.map((student) => (
-            <Grid item xs={12} md={6} key={student._id}>
+            <Grid size={{ xs: 12, md: 6}} key={student._id}>
               <StudentCard student={student} userRole={user?.role} />
             </Grid>
           ))}

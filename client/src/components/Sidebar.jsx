@@ -40,8 +40,8 @@ const mentorMenuItems = [
 const hodMenuItems = [
     { text: 'Dashboard', icon: <DashboardIcon />, path: '/dashboard' },
     { text: 'Profile', icon: <PersonIcon />, path: '/profile' },
-    { text: 'Mentor Requests', icon: <NoteAddIcon />, path: '/mentor-requests' },
     { text: 'All Projects', icon: <AssignmentIcon />, path: '/all-projects' },
+    { text: 'Proposals Queue', icon: <NoteAddIcon />, path: '/proposals-queue' },
     { text: 'All Students', icon: <GroupIcon />, path: '/my-students' },
 ];
 

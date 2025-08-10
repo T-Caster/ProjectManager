@@ -45,3 +45,5 @@ export const offEvent = (eventName, callback) => {
     socket.off(eventName, callback);
   }
 };
+
+export { socket };
