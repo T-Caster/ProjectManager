@@ -315,6 +315,7 @@ const ProposeProjectPage = () => {
       const { data: savedProposal } = await saveDraft(payload);
       if (submit) {
         await submitProposal(savedProposal._id);
+        await refreshProposals(); // 🔧 REFRESH
       }
       setProposal(savedProposal);
       setDirty(false);

@@ -3,8 +3,8 @@
 // Keep the subscribe channel in case you want presence or room logic later.
 
 const proposalHandler = (io, socket) => {
-  socket.on('proposal:subscribe', () => {
-    // no-op for now; kept for future room/presence logic
+  socket.on('updateProposals', () => {
+    // This event is now handled on the client side
   });
 };
 

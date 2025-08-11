@@ -23,13 +23,24 @@ const pdfUpload = multer({
 
 // ------- helpers to target recipients over socket.io -------
 const getAllSockets = async (io) => (io ? io.fetchSockets() : []);
-const emitToHods = async (io, event, data) => {
+
+// Emits to all HODs
+const emitToHods = async (io) => {
+  if (!io) return;
   const sockets = await getAllSockets(io);
-  sockets.filter((s) => s.user && s.user.role === "hod").forEach((s) => s.emit(event, data));
+  sockets
+    .filter((s) => s.user && s.user.role === "hod")
+    .forEach((s) => s.emit("updateProposals"));
 };
-const emitToUser = async (io, userId, event, data) => {
+
+// Emits to a list of specific user IDs
+const emitToUsers = async (io, userIds) => {
+  if (!io || !userIds || userIds.length === 0) return;
   const sockets = await getAllSockets(io);
-  sockets.filter((s) => s.user && s.user.id === userId.toString()).forEach((s) => s.emit(event, data));
+  const userSet = new Set(userIds.map(id => id.toString()));
+  sockets
+    .filter((s) => s.user && userSet.has(s.user.id.toString()))
+    .forEach((s) => s.emit("updateProposals"));
 };
 
 // Helper: student eligibility
@@ -207,7 +218,9 @@ router.put("/:id/submit", authMiddleware, roleMiddleware(["student"]), async (re
       .lean();
 
     if (req.io) {
-      await emitToHods(req.io, "new_pending_proposal", payload);
+      await emitToHods(req.io);
+      const studentIds = [proposal.author, proposal.coStudent].filter(Boolean);
+      await emitToUsers(req.io, studentIds);
     }
 
     // You can still return the saved doc to the student; not required to be populated
@@ -360,9 +373,9 @@ router.put("/:id/reject", authMiddleware, roleMiddleware(["hod"]), async (req, r
     await proposal.save();
 
     if (req.io) {
-      await emitToHods(req.io, "proposal_processed", { proposalId: proposal._id, status: "Rejected" });
-      await emitToUser(req.io, proposal.author, "my_proposal_rejected", proposal);
-      if (proposal.coStudent) await emitToUser(req.io, proposal.coStudent, "my_proposal_rejected", proposal);
+      await emitToHods(req.io);
+      const studentIds = [proposal.author, proposal.coStudent].filter(Boolean);
+      await emitToUsers(req.io, studentIds);
     }
 
     res.json(proposal);
@@ -431,19 +444,19 @@ router.put("/:id/approve", authMiddleware, roleMiddleware(["hod"]), async (req, 
       await p.save();
 
       // Notify HODs & affected students about conflicting rejections
+      // Notify HODs & affected students about conflicting rejections
       if (req.io) {
-        await emitToHods(req.io, "proposal_processed", { proposalId: p._id, status: "Rejected" });
-        await emitToUser(req.io, p.author, "my_proposal_rejected", p);
-        if (p.coStudent) await emitToUser(req.io, p.coStudent, "my_proposal_rejected", p);
+        await emitToHods(req.io);
+        const studentIds = [p.author, p.coStudent].filter(Boolean);
+        await emitToUsers(req.io, studentIds);
       }
     }
 
     // 7) Emit success notifications
+    // 7) Emit success notifications
     if (req.io) {
-      await emitToHods(req.io, "proposal_processed", { proposalId: proposal._id, status: "Approved" });
-      for (const sid of studentIds) {
-        await emitToUser(req.io, sid, "my_proposal_approved", { proposal, project: savedProject });
-      }
+      await emitToHods(req.io);
+      await emitToUsers(req.io, studentIds);
     }
 
     // 8) Done

@@ -2,7 +2,6 @@ const socketIo = require('socket.io');
 const jwt = require('jsonwebtoken');
 const User = require('../models/User');
 const mentorHandler = require('../socketHandlers/mentorHandler');
-const hodHandler = require('../socketHandlers/hodHandler');
 const proposalHandler = require('../socketHandlers/proposalHandler');
 
 const users = {}; // To map userId to socketId
@@ -40,7 +39,6 @@ const initSocket = (server) => {
     users[socket.user.id] = socket.id;
 
     mentorHandler(io, socket, users);
-    hodHandler(io, socket, users);
     proposalHandler(io, socket, users);
 
     socket.on('disconnect', () => {

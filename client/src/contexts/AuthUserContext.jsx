@@ -57,18 +57,16 @@ export const AuthUserProvider = ({ children }) => {
   useEffect(() => {
     if (!socket) return;
 
-    const handleProposalDecision = () => {
-      console.log('proposal decision received, syncing user');
+    const handleProposalsUpdate = () => {
+      console.log('Proposals updated, syncing user state.');
       syncUserWithoutLoading();
     };
 
-    socket.on('my_proposal_approved', handleProposalDecision);
-    socket.on('my_proposal_rejected', handleProposalDecision);
+    socket.on('updateProposals', handleProposalsUpdate);
 
     return () => {
       if (socket) {
-        socket.off('my_proposal_approved', handleProposalDecision);
-        socket.off('my_proposal_rejected', handleProposalDecision);
+        socket.off('updateProposals', handleProposalsUpdate);
       }
     };
   }, [socket, syncUserWithoutLoading]);

@@ -13,7 +13,10 @@ export const ProposalProvider = ({ children }) => {
 
   const fetchProposals = useCallback(async () => {
     if (!user) return;
-    setIsLoading(true);
+    const enableLoading = (user?.role === "student" && myProposals?.length == 0) || ((user?.role === "hod" && pendingProposals?.length == 0))
+    if (enableLoading){
+      setIsLoading(true);
+    }
     try {
       if (user.role === 'student') {
         console.log("approved!")
@@ -26,7 +29,9 @@ export const ProposalProvider = ({ children }) => {
     } catch (error) {
       console.error('Failed to fetch proposals:', error);
     } finally {
-      setIsLoading(false);
+      if (enableLoading){
+        setIsLoading(false);
+      }
     }
   }, [user]);
 
@@ -60,40 +65,19 @@ export const ProposalProvider = ({ children }) => {
       fetchProposals();
     };
 
-    const handleNewPendingProposal = (newProposal) => {
-      if (user?.role === 'hod') {
-        setPendingProposals(prev => addOrMoveTop(prev, newProposal));
-      }
-    };
-
-    const handleProposalProcessed = ({ proposalId }) => {
-      if (user?.role === 'hod') {
-        setPendingProposals(prev => prev.filter(p => p._id !== proposalId));
-      }
-    };
-
-    const handleMyProposalUpdate = () => {
-      if (user?.role === 'student') {
-        fetchProposals();
-      }
+    const handleUpdateProposals = () => {
+      fetchProposals();
     };
 
     socket.on('connect', onConnect);
-    socket.on('new_pending_proposal', handleNewPendingProposal);
-    socket.on('proposal_processed', handleProposalProcessed);
-    socket.on('my_proposal_approved', handleMyProposalUpdate);
-    socket.on('my_proposal_rejected', handleMyProposalUpdate);
+    socket.on('updateProposals', handleUpdateProposals);
 
-    socket.emit('proposal:subscribe');
 
     return () => {
       document.removeEventListener('visibilitychange', refetchOnFocus);
       if (socket){
         socket.off('connect', onConnect);
-        socket.off('new_pending_proposal', handleNewPendingProposal);
-        socket.off('proposal_processed', handleProposalProcessed);
-        socket.off('my_proposal_approved', handleMyProposalUpdate);
-        socket.off('my_proposal_rejected', handleMyProposalUpdate);
+        socket.off('updateProposals', handleUpdateProposals);
       }
     };
   }, [user, fetchProposals, addOrMoveTop]);
