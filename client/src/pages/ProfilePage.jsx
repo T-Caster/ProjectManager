@@ -31,6 +31,7 @@ export default function ProfilePage() {
         idNumber: "",
         password: "",
         confirmPassword: "",
+        phoneNumber: "",
     });
     const [formError, setFormError] = useState("");
     const [formSuccess, setFormSuccess] = useState("");
@@ -49,6 +50,7 @@ export default function ProfilePage() {
                     idNumber: userData.idNumber || "",
                     password: "",
                     confirmPassword: "",
+                    phoneNumber: userData.phoneNumber || "",
                 });
                 setProfilePicPreview(userData.profilePic);
                 if (!id) setIsCurrentUser(true);
@@ -91,6 +93,7 @@ export default function ProfilePage() {
             idNumber: user.idNumber || "",
             password: "",
             confirmPassword: "",
+            phoneNumber: user.phoneNumber || "",
         });
         setProfilePicFile(null);
         setProfilePicPreview(user.profilePic); // Reset preview to original
@@ -124,6 +127,7 @@ export default function ProfilePage() {
             fullName: form.fullName,
             email: form.email,
             idNumber: form.idNumber,
+            phoneNumber: form.phoneNumber,
         };
         if (form.password) updateData.password = form.password;
 
@@ -263,6 +267,13 @@ export default function ProfilePage() {
                                     slotProps={{ htmlInput: { maxLength: 9 } }}
                                 />
                                 <TextField
+                                    label="Phone Number"
+                                    name="phoneNumber"
+                                    value={form.phoneNumber}
+                                    onChange={handleChange}
+                                    fullWidth
+                                />
+                                <TextField
                                     label="New Password"
                                     name="password"
                                     type="password"
@@ -294,6 +305,7 @@ export default function ProfilePage() {
                         <Stack spacing={2} width="100%">
                             <InfoRow label="Email" value={user.email} />
                             {(isCurrentUser || authUser?.role === 'hod' || (authUser?.role === 'mentor' && user?.mentor?._id === authUser?._id)) && <InfoRow label="ID Number" value={user.idNumber} />}
+                            <InfoRow label="Phone Number" value={user.phoneNumber} />
                             <InfoRow label="Role" value={formatRole(user.role)} />
                             {user.mentor && (
                                 <Box display="flex" justifyContent="space-between" alignItems="center">

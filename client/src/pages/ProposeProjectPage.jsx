@@ -185,7 +185,7 @@ const ProposeProjectPage = () => {
           setFormData(prev => ({
             ...prev,
             address: user?.address || '',
-            mobilePhone: user?.mobilePhone || '',
+            mobilePhone: user?.phoneNumber || '',
             endOfStudies: user?.endOfStudies ? toYMD(user.endOfStudies) : '',
           }));
         }

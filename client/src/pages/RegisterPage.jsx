@@ -20,6 +20,7 @@ export default function RegisterPage() {
     idNumber: '',
     password: '',
     confirmPassword: '',
+    phoneNumber: '',
   });
   const [formError, setFormError] = useState('');
   const [loading, setLoading] = useState(false);
@@ -34,6 +35,7 @@ export default function RegisterPage() {
     const idNumber = data.get('idNumber')?.trim();
     const password = data.get('password');
     const confirmPassword = data.get('confirmPassword');
+    const phoneNumber = data.get('phoneNumber')?.trim();
 
     const newErrors = {
       fullName: '',
@@ -41,6 +43,7 @@ export default function RegisterPage() {
       idNumber: '',
       password: '',
       confirmPassword: '',
+      phoneNumber: '',
     };
 
     if (!fullName) newErrors.fullName = 'Full name is required.';
@@ -54,6 +57,8 @@ export default function RegisterPage() {
     if (password !== confirmPassword) {
       newErrors.confirmPassword = 'Passwords do not match.';
     }
+    if (!phoneNumber) newErrors.phoneNumber = 'Phone number is required.';
+
 
     setErrors(newErrors);
 
@@ -67,6 +72,7 @@ export default function RegisterPage() {
       formData.append("email", email);
       formData.append("idNumber", idNumber);
       formData.append("password", password);
+      formData.append("phoneNumber", phoneNumber);
       if (profilePic) {
         formData.append("profilePic", profilePic);
       }
@@ -110,6 +116,15 @@ export default function RegisterPage() {
             inputProps={{ maxLength: 9 }}
             error={!!errors.idNumber}
             helperText={errors.idNumber}
+          />
+          <TextField
+            required
+            fullWidth
+            id="phoneNumber"
+            label="Phone Number"
+            name="phoneNumber"
+            error={!!errors.phoneNumber}
+            helperText={errors.phoneNumber}
           />
           <TextField
             required

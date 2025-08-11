@@ -22,7 +22,7 @@ const upload = multer({
 
 // Register route with optional profile picture
 router.post("/register", upload.single("profilePic"), async (req, res) => {
-  const { fullName, email, idNumber, password } = req.body;
+  const { fullName, email, idNumber, password, phoneNumber } = req.body;
   try {
     const existing = await User.findOne({ idNumber });
     if (existing) return res.status(400).json({ error: "User already exists" });
@@ -33,7 +33,7 @@ router.post("/register", upload.single("profilePic"), async (req, res) => {
       profilePic = path.join("uploads", req.file.filename);
     }
 
-    const user = await User.create({ fullName, email, idNumber, password: hashedPassword, profilePic });
+    const user = await User.create({ fullName, email, idNumber, password: hashedPassword, profilePic, phoneNumber });
     res.status(201).json({ message: "User registered" });
   } catch (err) {
     res.status(500).json({ error: "Server error" });
@@ -186,7 +186,7 @@ router.post("/reset-profile-pic", authMiddleware, async (req, res) => {
 router.put("/edit-profile", authMiddleware, async (req, res) => {
   try {
     const updates = {};
-    const allowedFields = ["fullName", "email", "idNumber", "password"];
+    const allowedFields = ["fullName", "email", "idNumber", "password", "phoneNumber"];
     allowedFields.forEach(field => {
       if (req.body[field]) updates[field] = req.body[field];
     });

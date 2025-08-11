@@ -45,6 +45,7 @@ const seedData = async () => {
       fullName: 'Dr. Head of Department',
       email: 'firassharary3@gmail.com',
       idNumber: '100000000',
+      phoneNumber: '050-1234567',
       role: 'hod',
       password: hashedPassword,
     });
@@ -77,7 +78,8 @@ const seedData = async () => {
       const mentorData = {
         fullName: `Mentor ${i + 1}`,
         email: `mentor${i + 1}@example.com`,
-        idNumber: `20000000${i}`,
+        idNumber: `2${String(i).padStart(8, '0')}`,
+        phoneNumber: `052-11111${String(i).padStart(2, '0')}`,
         role: 'mentor',
         password: 'password123',
       };
@@ -96,6 +98,7 @@ const seedData = async () => {
         fullName: `Student ${i + 1}`,
         email: `student${i + 1}@example.com`,
         idNumber: `3${String(i).padStart(8, '0')}`,
+        phoneNumber: `054-22222${String(i).padStart(2, '0')}`,
         role: 'student',
         password: 'password123',
       };
