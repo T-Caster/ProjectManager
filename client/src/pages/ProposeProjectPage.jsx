@@ -1,90 +1,18 @@
-import React, { useEffect, useMemo, useRef, useState } from 'react';
-import {
-  Container,
-  Typography,
-  TextField,
-  Button,
-  Grid,
-  Paper,
-  Box,
-  MenuItem,
-  CircularProgress,
-  Alert,
-  Divider,
-  Stack,
-  Chip,
-  Tooltip,
-  IconButton,
-  Snackbar,
-} from '@mui/material';
-import UploadFileIcon from '@mui/icons-material/UploadFile';
-import SaveOutlinedIcon from '@mui/icons-material/SaveOutlined';
-import SendIcon from '@mui/icons-material/Send';
-import ArrowBackIcon from '@mui/icons-material/ArrowBack';
+import React, { useEffect, useMemo, useState } from 'react';
+import { Container, Box, CircularProgress, Alert, Stack, Snackbar } from '@mui/material';
 import { useAuthUser } from '../contexts/AuthUserContext';
 import { useProposals } from '../contexts/useProposals';
-import {
-  saveDraft,
-  submitProposal,
-  getEligibleCoStudents,
-  getMyProposals,
-  uploadProposalPdf,
-} from '../services/proposalService';
+import { saveDraft, submitProposal, getEligibleCoStudents, getMyProposals } from '../services/proposalService';
 import axios from '../utils/axios';
 import { getAllMentors } from '../services/mentorService';
 import { useNavigate, useParams } from 'react-router-dom';
-
-const MAX_LEN = {
-  projectName: 120,
-  background: 1500,
-  objectives: 1500,
-  marketReview: 1500,
-  newOrImproved: 1000,
-};
-
-const statusColor = (status) => {
-  switch (status) {
-    case 'Pending': return 'warning';
-    case 'Approved': return 'success';
-    case 'Rejected': return 'error';
-    case 'Draft': default: return 'info';
-  }
-};
-
-const safeDateTime = (d) => {
-  if (!d) return '';
-  const dt = new Date(d);
-  return Number.isNaN(dt.getTime()) ? '' : dt.toLocaleString();
-};
-
-const SectionCard = ({ title, step, children }) => (
-  <Paper elevation={1} sx={{ p: 3, borderRadius: 2 }}>
-    <Stack direction="row" alignItems="center" spacing={1} sx={{ mb: 2 }}>
-      {typeof step === 'number' && <Chip size="small" color="primary" label={step} />}
-      <Typography variant="h6">{title}</Typography>
-    </Stack>
-    <Divider sx={{ mb: 2 }} />
-    {children}
-  </Paper>
-);
-
-const CounterTextField = ({ value, max, helperText, ...props }) => {
-  const left = Math.max(0, max - (value?.length || 0));
-  const over = (value?.length || 0) > max;
-  return (
-    <TextField
-      {...props}
-      value={value}
-      helperText={
-        over
-          ? `Too long by ${(value?.length || 0) - max} characters`
-          : helperText ?? `${left} characters remaining`
-      }
-      error={over || props.error}
-      inputProps={{ maxLength: max * 2, ...(props.inputProps || {}) }}
-    />
-  );
-};
+import ProposalHeader from '../components/proposal/ProposalHeader';
+import ProjectBasicsForm from '../components/proposal/ProjectBasicsForm';
+import StudentDetailsForm from '../components/proposal/StudentDetailsForm';
+import CoStudentForm from '../components/proposal/CoStudentForm';
+import MentorSuggestionForm from '../components/proposal/MentorSuggestionForm';
+import AttachmentsForm from '../components/proposal/AttachmentsForm';
+import ProposalActions from '../components/proposal/ProposalActions';
 
 const toYMD = (d) => {
   try {

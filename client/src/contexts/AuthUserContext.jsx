@@ -7,79 +7,64 @@ export const AuthUserContext = createContext(null);
 export const useAuthUser = () => useContext(AuthUserContext);
 
 export const AuthUserProvider = ({ children }) => {
-  const [user, setUser] = useState(null);
-  const [loading, setLoading] = useState(true);
+    const [user, setUser] = useState(null);
+    const [loading, setLoading] = useState(true);
 
-  const syncUser = useCallback(async () => {
-    setLoading(true);
-    try {
-      const token = localStorage.getItem("token");
-      if (token) {
-        const { data: user } = await getCurrentUser();
-        setUser(user);
-        initSocket();
-      } else {
+    const syncUser = useCallback(async (showLoading = true) => {
+        if (showLoading) {
+            setLoading(true);
+        }
+        try {
+            const token = localStorage.getItem("token");
+            if (token) {
+                const { data: user } = await getCurrentUser();
+                setUser(user);
+                initSocket();
+            } else {
+                setUser(null);
+                disconnectSocket();
+            }
+        } catch (error) {
+            console.error("Failed to sync user:", error);
+            setUser(null);
+            localStorage.removeItem("token");
+            disconnectSocket();
+        } finally {
+            if (showLoading) {
+                setLoading(false);
+            }
+        }
+    }, []);
+
+    useEffect(() => {
+        syncUser();
+    }, [syncUser]);
+
+    useEffect(() => {
+        if (!socket) return;
+
+        const handleProposalsUpdate = () => {
+            syncUser(false);
+        };
+
+        socket.on('updateProposals', handleProposalsUpdate);
+
+        return () => {
+            if (socket) {
+                socket.off('updateProposals', handleProposalsUpdate);
+            }
+        };
+    }, [socket, syncUser]);
+
+    const logout = () => {
+        localStorage.removeItem("token");
         setUser(null);
         disconnectSocket();
-      }
-    } catch (error) {
-      console.error("Failed to sync user:", error);
-      setUser(null);
-      localStorage.removeItem("token");
-      disconnectSocket();
-    } finally {
-      setLoading(false);
-    }
-  }, []);
-
-  const syncUserWithoutLoading = useCallback(async () => {
-    try {
-      const token = localStorage.getItem("token");
-      if (token) {
-        const { data: user } = await getCurrentUser();
-        setUser(user);
-      } else {
-        setUser(null);
-        disconnectSocket();
-      }
-    } catch (error) {
-      console.error("Failed to sync user:", error);
-      setUser(null);
-      localStorage.removeItem("token");
-      disconnectSocket();
-    }
-  }, []);
-
-  useEffect(() => {
-    syncUser();
-  }, [syncUser]);
-
-  useEffect(() => {
-    if (!socket) return;
-
-    const handleProposalsUpdate = () => {
-      console.log('Proposals updated, syncing user state.');
-      syncUserWithoutLoading();
     };
 
-    socket.on('updateProposals', handleProposalsUpdate);
-
-    return () => {
-      if (socket) {
-        socket.off('updateProposals', handleProposalsUpdate);
-      }
-    };
-  }, [socket, syncUserWithoutLoading]);
-
-  const logout = () => {
-    localStorage.removeItem("token");
-    setUser(null);
-    disconnectSocket();
-  };
-
-  return (
-    <AuthUserContext.Provider value={{ user, loading, setUser, setLoading, logout, syncUser }}>
-      {children}
-    </AuthUserContext.Provider>
-  );
+    return (
+        <AuthUserContext.Provider value={{ user, loading, setUser, setLoading, logout, syncUser }}>
+            {children}
+        </AuthUserContext.Provider>
+    );
 };

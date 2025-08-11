@@ -21,26 +21,24 @@ const pdfUpload = multer({
   limits: { fileSize: 10 * 1024 * 1024 },
 });
 
-// ------- helpers to target recipients over socket.io -------
-const getAllSockets = async (io) => (io ? io.fetchSockets() : []);
+// ------- Socket.io Notification Helpers -------
+const notifyProposalUpdates = async (io, proposal, conflictingProposals = []) => {
+    if (!io) return;
 
-// Emits to all HODs
-const emitToHods = async (io) => {
-  if (!io) return;
-  const sockets = await getAllSockets(io);
-  sockets
-    .filter((s) => s.user && s.user.role === "hod")
-    .forEach((s) => s.emit("updateProposals"));
-};
+    const getAllSockets = async () => io.fetchSockets();
+    const sockets = await getAllSockets();
 
-// Emits to a list of specific user IDs
-const emitToUsers = async (io, userIds) => {
-  if (!io || !userIds || userIds.length === 0) return;
-  const sockets = await getAllSockets(io);
-  const userSet = new Set(userIds.map(id => id.toString()));
-  sockets
-    .filter((s) => s.user && userSet.has(s.user.id.toString()))
-    .forEach((s) => s.emit("updateProposals"));
+    const hodSockets = sockets.filter(s => s.user && s.user.role === 'hod');
+    hodSockets.forEach(s => s.emit('updateProposals'));
+
+    const involvedUserIds = new Set();
+    [proposal, ...conflictingProposals].forEach(p => {
+        if (p.author) involvedUserIds.add(p.author.toString());
+        if (p.coStudent) involvedUserIds.add(p.coStudent.toString());
+    });
+
+    const userSockets = sockets.filter(s => s.user && involvedUserIds.has(s.user.id.toString()));
+    userSockets.forEach(s => s.emit('updateProposals'));
 };
 
 // Helper: student eligibility
@@ -183,55 +181,44 @@ router.post("/draft", authMiddleware, roleMiddleware(["student"]), async (req, r
 
 // Submit a proposal
 router.put("/:id/submit", authMiddleware, roleMiddleware(["student"]), async (req, res) => {
-  try {
-    const authorEligibility = await checkStudentEligibility(req.user.id);
-    if (!authorEligibility.eligible) {
-      return res.status(400).json({ msg: `You are not eligible to submit a proposal: ${authorEligibility.message}` });
+    try {
+        const authorEligibility = await checkStudentEligibility(req.user.id);
+        if (!authorEligibility.eligible) {
+            return res.status(400).json({ msg: `You are not eligible to submit a proposal: ${authorEligibility.message}` });
+        }
+
+        const proposal = await Proposal.findOne({ _id: req.params.id, author: req.user.id });
+        if (!proposal) return res.status(404).json({ msg: "Proposal not found" });
+
+        if (!["Draft", "Rejected"].includes(proposal.status)) {
+            return res.status(400).json({ msg: `Cannot submit proposal with status: ${proposal.status}` });
+        }
+
+        if (proposal.coStudent) {
+            const coStudentEligibility = await checkStudentEligibility(proposal.coStudent);
+            if (!coStudentEligibility.eligible) {
+                return res.status(400).json({ msg: `Co-student is not eligible: ${coStudentEligibility.message}` });
+            }
+            proposal.coStudentSnapshot = {
+                fullName: coStudentEligibility.student.fullName,
+                idNumber: coStudentEligibility.student.idNumber,
+            };
+        }
+
+        proposal.status = "Pending";
+        proposal.submittedAt = new Date();
+        const savedProposal = await proposal.save();
+
+        notifyProposalUpdates(req.io, savedProposal);
+
+        res.json(savedProposal);
+    } catch (error) {
+        console.error(error);
+        if (error.code === 11000) {
+            return res.status(400).json({ msg: "You already have a proposal pending review." });
+        }
+        res.status(500).send("Server Error");
     }
-
-    const proposal = await Proposal.findOne({ _id: req.params.id, author: req.user.id });
-    if (!proposal) return res.status(404).json({ msg: "Proposal not found" });
-
-    if (!["Draft", "Rejected"].includes(proposal.status)) {
-      return res.status(400).json({ msg: `Cannot submit proposal with status: ${proposal.status}` });
-    }
-
-    if (proposal.coStudent) {
-      const coStudentEligibility = await checkStudentEligibility(proposal.coStudent);
-      if (!coStudentEligibility.eligible) {
-        return res.status(400).json({ msg: `Co-student is not eligible: ${coStudentEligibility.message}` });
-      }
-      proposal.coStudentSnapshot = {
-        fullName: coStudentEligibility.student.fullName,
-        idNumber: coStudentEligibility.student.idNumber,
-      };
-    }
-
-    proposal.status = "Pending";
-    proposal.submittedAt = new Date();
-    await proposal.save();
-
-    // 🔧 NEW: hydrate the payload before emitting so the queue sees mentor name immediately
-    let payload = await Proposal.findById(proposal._id)
-      .populate("suggestedMentor", "fullName")
-      .select("projectName status submittedAt authorSnapshot coStudentSnapshot suggestedMentor attachments createdAt updatedAt")
-      .lean();
-
-    if (req.io) {
-      await emitToHods(req.io);
-      const studentIds = [proposal.author, proposal.coStudent].filter(Boolean);
-      await emitToUsers(req.io, studentIds);
-    }
-
-    // You can still return the saved doc to the student; not required to be populated
-    res.json(proposal);
-  } catch (error) {
-    console.error(error);
-    if (error.code === 11000) {
-      return res.status(400).json({ msg: "You already have a proposal pending review." });
-    }
-    res.status(500).send("Server Error");
-  }
 });
 
 // Get eligible co-students
@@ -357,117 +344,109 @@ router.get("/:id", authMiddleware, async (req, res) => {
 
 // Reject a proposal (HOD only)
 router.put("/:id/reject", authMiddleware, roleMiddleware(["hod"]), async (req, res) => {
-  try {
-    const { reason } = req.body;
-    if (!reason) return res.status(400).json({ msg: "Rejection reason is required" });
+    try {
+        const { reason } = req.body;
+        if (!reason) return res.status(400).json({ msg: "Rejection reason is required" });
 
-    const proposal = await Proposal.findById(req.params.id);
-    if (!proposal) return res.status(404).json({ msg: "Proposal not found" });
-    if (proposal.status !== "Pending") {
-      return res.status(400).json({ msg: "Can only reject a pending proposal" });
+        const proposal = await Proposal.findById(req.params.id);
+        if (!proposal) return res.status(404).json({ msg: "Proposal not found" });
+        if (proposal.status !== "Pending") {
+            return res.status(400).json({ msg: "Can only reject a pending proposal" });
+        }
+
+        proposal.status = "Rejected";
+        proposal.approval = { approvedBy: req.user.id, decision: "Rejected", reason };
+        proposal.reviewedAt = new Date();
+        const savedProposal = await proposal.save();
+
+        notifyProposalUpdates(req.io, savedProposal);
+
+        res.json(savedProposal);
+    } catch (error) {
+        console.error(error);
+        res.status(500).send("Server Error");
     }
-
-    proposal.status = "Rejected";
-    proposal.approval = { approvedBy: req.user.id, decision: "Rejected", reason };
-    proposal.reviewedAt = new Date();
-    await proposal.save();
-
-    if (req.io) {
-      await emitToHods(req.io);
-      const studentIds = [proposal.author, proposal.coStudent].filter(Boolean);
-      await emitToUsers(req.io, studentIds);
-    }
-
-    res.json(proposal);
-  } catch (error) {
-    console.error(error);
-    res.status(500).send("Server Error");
-  }
 });
 
-// Approve a proposal (HOD only) — no transactions, simple sequential writes
+// Approve a proposal (HOD only)
 router.put("/:id/approve", authMiddleware, roleMiddleware(["hod"]), async (req, res) => {
-  try {
-    const { mentorId } = req.body;
+    const session = await mongoose.startSession();
+    session.startTransaction();
+    try {
+        const { mentorId } = req.body;
+        const { id: proposalId } = req.params;
 
-    // 1) Load proposal
-    const proposal = await Proposal.findById(req.params.id);
-    if (!proposal) return res.status(404).json({ msg: "Proposal not found" });
-    if (proposal.status !== "Pending") {
-      return res.status(400).json({ msg: "Can only approve a pending proposal" });
+        const proposal = await Proposal.findById(proposalId).session(session);
+        if (!proposal) {
+            await session.abortTransaction();
+            session.endSession();
+            return res.status(404).json({ msg: "Proposal not found" });
+        }
+        if (proposal.status !== "Pending") {
+            await session.abortTransaction();
+            session.endSession();
+            return res.status(400).json({ msg: "Can only approve a pending proposal" });
+        }
+
+        const finalMentorId = mentorId || proposal.suggestedMentor;
+        if (!finalMentorId) {
+            await session.abortTransaction();
+            session.endSession();
+            return res.status(400).json({ msg: "Mentor must be assigned before approval" });
+        }
+        const mentorUser = await User.findById(finalMentorId).select("fullName").lean();
+
+        const newProject = new Project({
+            name: proposal.projectName,
+            description: `**Background:**\n${proposal.background}\n\n**Objectives:**\n${proposal.objectives}`,
+            students: [proposal.author, ...(proposal.coStudent ? [proposal.coStudent] : [])],
+            mentor: finalMentorId,
+            proposal: proposal._id,
+            snapshots: {
+                studentNames: [proposal.authorSnapshot?.fullName || "", ...(proposal.coStudentSnapshot ? [proposal.coStudentSnapshot.fullName] : [])],
+                mentorName: mentorUser?.fullName || "",
+                approvedAt: new Date(),
+                hodReviewer: req.user.id,
+            },
+        });
+        const savedProject = await newProject.save({ session });
+
+        proposal.status = "Approved";
+        proposal.approval = { approvedBy: req.user.id, decision: "Approved" };
+        proposal.reviewedAt = new Date();
+        await proposal.save({ session });
+
+        const studentIds = [proposal.author, ...(proposal.coStudent ? [proposal.coStudent] : [])];
+        await User.updateMany({ _id: { $in: studentIds } }, { $set: { isInProject: true, project: savedProject._id, mentor: finalMentorId } }, { session });
+
+        const conflictingProposals = await Proposal.find({
+            _id: { $ne: proposal._id },
+            status: "Pending",
+            $or: [{ author: { $in: studentIds } }, { coStudent: { $in: studentIds } }],
+        }).session(session);
+
+        for (const p of conflictingProposals) {
+            p.status = "Rejected";
+            p.conflictCleanup = { triggeredByProposalId: proposal._id, triggeredAt: new Date() };
+            p.approval = { decision: "Rejected", reason: "A conflicting project proposal was approved." };
+            await p.save({ session });
+        }
+
+        await session.commitTransaction();
+        session.endSession();
+
+        notifyProposalUpdates(req.io, proposal, conflictingProposals);
+
+        return res.json({
+            msg: "Proposal approved and project created successfully",
+            project: savedProject,
+        });
+    } catch (error) {
+        await session.abortTransaction();
+        session.endSession();
+        console.error(error);
+        return res.status(500).json({ msg: "Server Error", error: error.message });
     }
-
-    // 2) Resolve final mentor
-    const finalMentorId = mentorId || proposal.suggestedMentor;
-    if (!finalMentorId) {
-      return res.status(400).json({ msg: "Mentor must be assigned before approval" });
-    }
-    const mentorUser = await User.findById(finalMentorId).select("fullName").lean();
-
-    // 3) Create Project from proposal
-    const newProject = new Project({
-      name: proposal.projectName,
-      description: `**Background:**\n${proposal.background}\n\n**Objectives:**\n${proposal.objectives}`,
-      students: [proposal.author, ...(proposal.coStudent ? [proposal.coStudent] : [])],
-      mentor: finalMentorId,
-      proposal: proposal._id,
-      snapshots: {
-        studentNames: [proposal.authorSnapshot?.fullName || "", ...(proposal.coStudentSnapshot ? [proposal.coStudentSnapshot.fullName] : [])],
-        mentorName: mentorUser?.fullName || "",
-        approvedAt: new Date(),
-        hodReviewer: req.user.id,
-      },
-    });
-    const savedProject = await newProject.save();
-
-    // 4) Mark proposal as approved
-    proposal.status = "Approved";
-    proposal.approval = { approvedBy: req.user.id, decision: "Approved" };
-    proposal.reviewedAt = new Date();
-    await proposal.save();
-
-    // 5) Update involved students
-    const studentIds = [proposal.author, ...(proposal.coStudent ? [proposal.coStudent] : [])];
-    await User.updateMany({ _id: { $in: studentIds } }, { $set: { isInProject: true, project: savedProject._id, mentor: finalMentorId } });
-
-    // 6) Reject conflicting pending proposals for those students
-    const conflictingProposals = await Proposal.find({
-      _id: { $ne: proposal._id },
-      status: "Pending",
-      $or: [{ author: { $in: studentIds } }, { coStudent: { $in: studentIds } }],
-    });
-
-    for (const p of conflictingProposals) {
-      p.status = "Rejected";
-      p.conflictCleanup = { triggeredByProposalId: proposal._id, triggeredAt: new Date() };
-      p.approval = { decision: "Rejected", reason: "A conflicting project proposal was approved." };
-      await p.save();
-
-      // Notify HODs & affected students about conflicting rejections
-      // Notify HODs & affected students about conflicting rejections
-      if (req.io) {
-        await emitToHods(req.io);
-        const studentIds = [p.author, p.coStudent].filter(Boolean);
-        await emitToUsers(req.io, studentIds);
-      }
-    }
-
-    // 7) Emit success notifications
-    // 7) Emit success notifications
-    if (req.io) {
-      await emitToHods(req.io);
-      await emitToUsers(req.io, studentIds);
-    }
-
-    // 8) Done
-    return res.json({
-      msg: "Proposal approved and project created successfully",
-      project: savedProject,
-    });
-  } catch (error) {
-    console.error(error);
-    return res.status(500).json({ msg: "Server Error", error: error.message });
-  }
 });
 
 module.exports = router;

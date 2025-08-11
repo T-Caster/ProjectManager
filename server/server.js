@@ -10,7 +10,7 @@ const hodRoutes = require('./routes/hodRouter');
 const proposalRoutes = require('./routes/proposalRouter');
 const path = require('path');
 
-dotenv.config();
+dotenv.config({ debug: true });
 
 const app = express();
 const server = http.createServer(app);
