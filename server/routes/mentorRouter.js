@@ -19,14 +19,30 @@ router.get("/", authMiddleware, roleMiddleware(["student", "hod"]), async (req, 
   }
 });
 
-// Mentor gets their students
-router.get("/my-students", authMiddleware, roleMiddleware(["mentor"]), async (req, res) => {
-    try {
-        const students = await User.find({ mentor: req.user.id }).select("-password -recoveryCode -resetPasswordToken -resetPasswordExpires");
-        res.json(students);
-    } catch (err) {
-        res.status(500).json({ error: "Server error" });
-    }
+// Mentor/HOD gets their students
+router.get("/my-students", authMiddleware, roleMiddleware(["mentor", "hod"]), async (req, res) => {
+  try {
+    const me = await User.findById(req.user.id).select("-password -recoveryCode -resetPasswordToken -resetPasswordExpires");
+
+    const baseQuery = me.role === "hod" ? { role: "student" } : { mentor: req.user.id, role: "student" };
+
+    const students = await User.find(baseQuery)
+      .select("-password -recoveryCode -resetPasswordToken -resetPasswordExpires")
+      .populate("mentor", "fullName profilePic")
+      .populate({
+        path: "project",
+        select: "mentor students name",
+        populate: [
+          { path: "mentor", select: "fullName profilePic" },
+          { path: "students", select: "fullName profilePic idNumber" },
+        ],
+      })
+      .lean();
+
+    res.json(students);
+  } catch (err) {
+    res.status(500).json({ error: "Server error" });
+  }
 });
 
 module.exports = router;
