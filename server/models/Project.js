@@ -3,7 +3,8 @@ const mongoose = require('mongoose');
 const projectSchema = new mongoose.Schema(
   {
     name: { type: String, required: true, trim: true },
-    description: { type: String, required: true, trim: true },
+    background: { type: String, required: true, trim: true },
+    objectives: { type: String, required: true, trim: true },
 
     // Exactly 1–2 students
     students: {

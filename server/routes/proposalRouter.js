@@ -407,12 +407,16 @@ router.put("/:id/approve", authMiddleware, roleMiddleware(["hod"]), async (req, 
     // 3) Create Project from proposal
     const newProject = new Project({
       name: proposal.projectName,
-      description: `**Background:**\n${proposal.background}\n\n**Objectives:**\n${proposal.objectives}`,
+      background: proposal.background || "",
+      objectives: proposal.objectives || "",
       students: [proposal.author, ...(proposal.coStudent ? [proposal.coStudent] : [])],
       mentor: finalMentorId,
       proposal: proposal._id,
       snapshots: {
-        studentNames: [proposal.authorSnapshot?.fullName || "", ...(proposal.coStudentSnapshot ? [proposal.coStudentSnapshot.fullName] : [])],
+        studentNames: [
+          proposal.authorSnapshot?.fullName || "",
+          ...(proposal.coStudentSnapshot ? [proposal.coStudentSnapshot.fullName] : [])
+        ],
         mentorName: mentorUser?.fullName || "",
         approvedAt: new Date(),
         hodReviewer: req.user.id,
@@ -428,7 +432,10 @@ router.put("/:id/approve", authMiddleware, roleMiddleware(["hod"]), async (req, 
 
     // 5) Update involved students
     const studentIds = [proposal.author, ...(proposal.coStudent ? [proposal.coStudent] : [])];
-    await User.updateMany({ _id: { $in: studentIds } }, { $set: { isInProject: true, project: savedProject._id, mentor: finalMentorId } });
+    await User.updateMany(
+      { _id: { $in: studentIds } },
+      { $set: { isInProject: true, project: savedProject._id, mentor: finalMentorId } }
+    );
 
     // 6) Reject conflicting pending proposals for those students
     const conflictingProposals = await Proposal.find({
@@ -443,16 +450,13 @@ router.put("/:id/approve", authMiddleware, roleMiddleware(["hod"]), async (req, 
       p.approval = { decision: "Rejected", reason: "A conflicting project proposal was approved." };
       await p.save();
 
-      // Notify HODs & affected students about conflicting rejections
-      // Notify HODs & affected students about conflicting rejections
       if (req.io) {
         await emitToHods(req.io);
-        const studentIds = [p.author, p.coStudent].filter(Boolean);
-        await emitToUsers(req.io, studentIds);
+        const affected = [p.author, p.coStudent].filter(Boolean);
+        await emitToUsers(req.io, affected);
       }
     }
 
-    // 7) Emit success notifications
     // 7) Emit success notifications
     if (req.io) {
       await emitToHods(req.io);
