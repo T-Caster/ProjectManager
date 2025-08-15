@@ -10,11 +10,14 @@ import {
   Typography,
   Divider,
   Button,
-  Tooltip,
+  Box,
 } from '@mui/material';
+import PersonOutlineIcon from '@mui/icons-material/PersonOutline';
+import GroupOutlinedIcon from '@mui/icons-material/GroupOutlined';
+import LaunchIcon from '@mui/icons-material/Launch';
 import { useNavigate } from 'react-router-dom';
 
-const PROFILE_ROUTE = (id) => `/profile/${id}`; // ← change if your profile route differs
+const PROFILE_ROUTE = (id) => `/profile/${id}`;
 
 const initials = (name = '') =>
   name
@@ -24,17 +27,37 @@ const initials = (name = '') =>
     .slice(0, 2)
     .toUpperCase();
 
+function InfoRow({ label, children, icon }) {
+  return (
+    <Stack direction="row" spacing={1} alignItems="center" flexWrap="wrap">
+      <Stack direction="row" spacing={0.75} alignItems="center" sx={{ minWidth: 112 }}>
+        {icon}
+        <Typography variant="body2" color="text.secondary" sx={{ fontWeight: 500 }}>{label}</Typography>
+      </Stack>
+      <Box sx={{ flex: 1, minWidth: 120 }}>{children}</Box>
+    </Stack>
+  );
+}
+
+const StatusChip = ({ inProject }) => (
+  <Chip
+    size="small"
+    label={inProject ? 'In Project' : 'Unassigned'}
+    color={inProject ? 'success' : 'default'}
+    variant={inProject ? 'filled' : 'outlined'}
+    sx={{ px: 0.75, '& .MuiChip-label': { fontWeight: 600 } }}
+  />
+);
+
 const StudentCard = ({ student }) => {
   const navigate = useNavigate();
 
   const inProject = !!student?.isInProject && !!student?.project;
 
-  // Mentor shown on the card: prefer project.mentor, fallback to user.mentor
   const mentor = useMemo(() => {
     return student?.project?.mentor || student?.mentor || null;
   }, [student]);
 
-  // Co-student: project.students excluding this student
   const coStudent = useMemo(() => {
     const others = (student?.project?.students || []).filter(
       (s) => s && s._id !== student._id
@@ -43,105 +66,114 @@ const StudentCard = ({ student }) => {
   }, [student]);
 
   return (
-    <Card
-      elevation={0}
-      sx={(theme) => ({
-        borderRadius: 3,
-        border: '1px solid',
-        borderColor: 'divider',
-        background: theme.palette.background.paper,
-      })}
-    >
-      <CardHeader
-        avatar={
-          <Avatar sx={{ bgcolor: 'primary.main' }}>
-            {initials(student?.fullName)}
-          </Avatar>
-        }
-        title={
-          <Stack direction="row" spacing={1} alignItems="center" flexWrap="wrap">
-            <Typography variant="h6">{student?.fullName}</Typography>
-            <Chip
-              size="small"
-              label={inProject ? 'In Project' : 'Unassigned'}
-              color={inProject ? 'success' : 'default'}
-              variant={inProject ? 'filled' : 'outlined'}
-            />
-          </Stack>
-        }
-        subheader={
-          <Typography variant="body2" color="text.secondary">
-            ID: {student?.idNumber || '—'}
-          </Typography>
-        }
-      />
+      <Card
+        elevation={0}
+        sx={(theme) => ({
+          position: 'relative',
+          borderRadius: 3,
+          border: '1px solid',
+          borderColor: 'divider',
+          background: theme.palette.background.paper,
+          display: 'flex',
+          flexDirection: 'column',
+          height: '100%',
+        })}
+      >
+        <Box sx={(theme) => ({
+          position: 'absolute',
+          insetInlineStart: 0,
+          top: 0,
+          bottom: 0,
+          width: 4,
+          bgcolor: inProject ? theme.palette.success.main : theme.palette.grey[400],
+          borderTopLeftRadius: 12,
+          borderBottomLeftRadius: 12,
+        })} />
 
-      <Divider />
+        <CardHeader
+          avatar={
+            <Avatar sx={(theme) => ({ bgcolor: inProject ? 'success.main' : 'primary.main', color: theme.palette.getContrastText(theme.palette.primary.main), fontWeight: 700 })}>
+              {initials(student?.fullName)}
+            </Avatar>
+          }
+          title={
+            <Stack direction="row" spacing={1} alignItems="center" flexWrap="wrap">
+              <Typography variant="h6" sx={{ lineHeight: 1.2 }}>
+                {student?.fullName}
+              </Typography>
+              <StatusChip inProject={inProject} />
+            </Stack>
+          }
+          subheader={
+            <Typography variant="body2" color="text.secondary">
+              ID: {student?.idNumber || '—'}
+            </Typography>
+          }
+          sx={{ pb: 1.25 }}
+        />
 
-      <CardContent>
-        <Stack spacing={1.25}>
+        <Divider />
+
+        <CardContent sx={{ flexGrow: 1, pt: 1.5, pb: 0 }}>
           {inProject ? (
-            <>
-              {/* Mentor */}
-              <Stack direction="row" spacing={1} alignItems="center" flexWrap="wrap">
-                <Typography variant="body2" color="text.secondary" sx={{ minWidth: 88 }}>
-                  Mentor
-                </Typography>
+            <Stack spacing={1.25}>
+              <InfoRow label="Mentor" icon={<PersonOutlineIcon fontSize="small" color="action" />}>
                 {mentor ? (
-                  <Tooltip title="Open mentor profile">
-                    <Chip
-                      clickable
-                      color="primary"
-                      variant="outlined"
-                      label={mentor.fullName}
-                      onClick={() => navigate(PROFILE_ROUTE(mentor._id))}
-                    />
-                  </Tooltip>
+                  <Chip
+                    clickable
+                    color="primary"
+                    variant="outlined"
+                    label={mentor.fullName}
+                    onClick={() => navigate(PROFILE_ROUTE(mentor._id))}
+                    sx={{ borderRadius: 2 }}
+                  />
                 ) : (
                   <Typography variant="body2">—</Typography>
                 )}
-              </Stack>
+              </InfoRow>
 
-              {/* Co-student */}
-              <Stack direction="row" spacing={1} alignItems="center" flexWrap="wrap">
-                <Typography variant="body2" color="text.secondary" sx={{ minWidth: 88 }}>
-                  Co-student
-                </Typography>
+              <InfoRow label="Co-student" icon={<GroupOutlinedIcon fontSize="small" color="action" />}>
                 {coStudent ? (
-                  <Tooltip title="Open co-student profile">
-                    <Chip
-                      clickable
-                      color="secondary"
-                      variant="outlined"
-                      label={coStudent.fullName}
-                      onClick={() => navigate(PROFILE_ROUTE(coStudent._id))}
-                    />
-                  </Tooltip>
+                  <Chip
+                    clickable
+                    color="secondary"
+                    variant="outlined"
+                    label={coStudent.fullName}
+                    onClick={() => navigate(PROFILE_ROUTE(coStudent._id))}
+                    sx={{ borderRadius: 2 }}
+                  />
                 ) : (
                   <Typography variant="body2">None</Typography>
                 )}
-              </Stack>
-            </>
+              </InfoRow>
+
+              {student?.project?.name && (
+                <InfoRow label="Project" icon={<LaunchIcon fontSize="small" color="action" />}>
+                  <Typography variant="body2" sx={{ fontWeight: 600 }}>
+                    {student.project.name}
+                  </Typography>
+                </InfoRow>
+              )}
+            </Stack>
           ) : (
-            <Typography variant="body2" color="text.secondary">
-              This student is not assigned to any project yet.
-            </Typography>
+            <Box sx={{ py: 0.5 }}>
+              <Typography variant="body2" color="text.secondary">
+                This student is not assigned to any project yet.
+              </Typography>
+            </Box>
           )}
-        </Stack>
-      </CardContent>
+        </CardContent>
 
-      <Divider />
-
-      <CardActions sx={{ px: 2, pb: 2 }}>
-        <Button
-          variant="contained"
-          onClick={() => navigate(PROFILE_ROUTE(student._id))}
-          sx={{ ml: 'auto' }}
-        >
-          View Profile
-        </Button>
-      </CardActions>
-    </Card>
+        <CardActions sx={{ px: 2, py: 2, pt: 2.25, gap: 1, flexWrap: 'wrap' }}>
+            <Button
+              variant="contained"
+              onClick={() => navigate(PROFILE_ROUTE(student._id))}
+              sx={{ ml: 'auto' }}
+            >
+              View Profile
+            </Button>
+        </CardActions>
+      </Card>
   );
 };
 

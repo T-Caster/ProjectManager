@@ -166,9 +166,10 @@ const ProposeProjectPage = () => {
             marketReview: target.marketReview || '',
             newOrImproved: target.newOrImproved || '',
 
-            // Top-level contact fields on Proposal
+            // these fields are stored on Proposal, not on User
             address: target.address || '',
-            mobilePhone: target.mobilePhone || '',
+            // phone: fallback to user profile ONLY if draft has none
+            mobilePhone: target.mobilePhone || user?.phoneNumber || '',
             endOfStudies: target.endOfStudies ? toYMD(target.endOfStudies) : '',
 
             // Either populated object or raw ObjectId
@@ -184,9 +185,9 @@ const ProposeProjectPage = () => {
           setProposal(null);
           setFormData(prev => ({
             ...prev,
-            address: user?.address || '',
+            address: '',
             mobilePhone: user?.phoneNumber || '',
-            endOfStudies: user?.endOfStudies ? toYMD(user.endOfStudies) : '',
+            endOfStudies: '',
           }));
         }
       } catch (e) {
@@ -544,11 +545,11 @@ const ProposeProjectPage = () => {
                 name="mobilePhone"
                 label="Mobile Phone (xxx-xxxxxxx)"
                 value={formData.mobilePhone}
-                onChange={handlePhoneChange}
+                InputProps={{ readOnly: true }}
+                disabled
                 error={!!formErrors.mobilePhone}
-                helperText={formErrors.mobilePhone}
+                helperText={formErrors.mobilePhone || 'Read-only (taken from your profile)'}
                 inputProps={{ inputMode: 'numeric', pattern: '\\d{3}-\\d{7}' }}
-                disabled={readOnlyMode}
               />
             </Grid>
             <Grid item size={{ xs: 12, sm: 6 }}>

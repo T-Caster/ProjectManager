@@ -9,9 +9,6 @@ const userSchema = new mongoose.Schema({
   password: String,
   mentor: { type: mongoose.Schema.Types.ObjectId, ref: 'User', default: null },
 
-  // Removed: address, mobilePhone, endOfStudies
-  // Contact/date info now lives on Proposal only
-
   // Project status
   isInProject: { type: Boolean, default: false },
   project: { type: mongoose.Schema.Types.ObjectId, ref: 'Project' },

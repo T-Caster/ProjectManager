@@ -103,13 +103,36 @@ router.post("/draft", authMiddleware, roleMiddleware(["student"]), async (req, r
       return res.status(400).json({ msg: "You are already in a project and cannot create a new proposal." });
     }
 
-    const { proposalId, attachmentId, removeAttachment, removeCoStudent, removeSuggestedMentor, endOfStudies, ...proposalData } = req.body;
+    // Pull out fields we handle specially; leave the rest in proposalData
+    const {
+      proposalId,
+      attachmentId,
+      removeAttachment,
+      removeCoStudent,
+      removeSuggestedMentor,
+      endOfStudies,
+      address,
+      mobilePhone, // ignored (we enforce student's phone)
+      ...proposalData
+    } = req.body;
 
+    // Normalize/trim proposal-level contact fields
+    proposalData.address = typeof address === "string" ? address.trim() : (address ?? "");
+    // Enforce phone from user profile (read-only)
+    proposalData.mobilePhone = (student.phoneNumber || "").trim();
+
+    // Parse endOfStudies safely (accepts "YYYY-MM-DD")
     if (endOfStudies) {
       const d = new Date(endOfStudies);
-      if (!isNaN(d.getTime())) proposalData.endOfStudies = d;
+      if (!isNaN(d.getTime())) {
+        proposalData.endOfStudies = d;
+      } else {
+        // If client sent an invalid date string, drop it to avoid poisoning the doc
+        delete proposalData.endOfStudies;
+      }
     }
 
+    // Handle optional removals
     let shouldUnsetCoStudent = false;
     let shouldUnsetSuggestedMentor = false;
 
@@ -132,6 +155,7 @@ router.post("/draft", authMiddleware, roleMiddleware(["student"]), async (req, r
       return res.status(400).json({ msg: "Invalid mentor ID." });
     }
 
+    // Attachments
     let nextAttachments;
     if (attachmentId) {
       if (!mongoose.Types.ObjectId.isValid(attachmentId)) {
@@ -146,6 +170,7 @@ router.post("/draft", authMiddleware, roleMiddleware(["student"]), async (req, r
       nextAttachments = [];
     }
 
+    // Minimal author snapshot
     const authorSnapshot = {
       fullName: student.fullName,
       idNumber: student.idNumber,
@@ -153,6 +178,7 @@ router.post("/draft", authMiddleware, roleMiddleware(["student"]), async (req, r
 
     let proposal;
     if (proposalId) {
+      // UPDATE existing (Draft/Rejected)
       const filter = { _id: proposalId, author: req.user.id, status: { $in: ["Draft", "Rejected"] } };
       const update = { ...proposalData, authorSnapshot, status: "Draft" };
       if (nextAttachments !== undefined) update.attachments = nextAttachments;
@@ -165,6 +191,7 @@ router.post("/draft", authMiddleware, roleMiddleware(["student"]), async (req, r
       proposal = await Proposal.findOneAndUpdate(filter, update, { new: true, runValidators: true });
       if (!proposal) return res.status(404).json({ msg: "Draft not found or permission denied." });
     } else {
+      // CREATE new Draft
       const newProposalData = { ...proposalData, author: req.user.id, authorSnapshot, status: "Draft" };
       if (shouldUnsetCoStudent) delete newProposalData.coStudent;
       if (shouldUnsetSuggestedMentor) delete newProposalData.suggestedMentor;
@@ -174,10 +201,10 @@ router.post("/draft", authMiddleware, roleMiddleware(["student"]), async (req, r
       await proposal.save();
     }
 
-    res.status(201).json(proposal);
+    return res.status(201).json(proposal);
   } catch (error) {
     console.error(error);
-    res.status(500).send("Server Error");
+    return res.status(500).send("Server Error");
   }
 });
 
