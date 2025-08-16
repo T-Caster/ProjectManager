@@ -54,6 +54,11 @@ export const MeetingProvider = ({ children }) => {
   }, [fetchMeetings]);
 
   useEffect(() => {
+    // Do not set up listeners if there is no user.
+    if (!user) {
+      return;
+    }
+
     const handleMeetingUpdate = (incoming) => {
       const m = normalizeMeeting(incoming);
       setMeetings((prev) => {
@@ -72,11 +77,13 @@ export const MeetingProvider = ({ children }) => {
     onEvent('newMeeting', handleMeetingUpdate);
     onEvent('meetingUpdated', handleMeetingUpdate);
 
+    // This cleanup function will run when the user changes,
+    // preventing listeners from stacking up across sessions.
     return () => {
       offEvent('newMeeting', handleMeetingUpdate);
       offEvent('meetingUpdated', handleMeetingUpdate);
     };
-  }, []);
+  }, [user]);
 
   // Combine all actions
   const proposeMeeting = (data) => meetingService.proposeMeeting(data);
