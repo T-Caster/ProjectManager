@@ -112,16 +112,24 @@ router.put(
       }
 
       meeting.status = 'accepted';
+      meeting.lastRescheduleReason = null; // Clear reason on approval
       await meeting.save();
 
+      // Re-fetch to ensure we have the fully populated object for emit
+      const populatedMeeting = await Meeting.findById(meeting._id)
+        .populate('proposer', 'fullName avatarUrl')
+        .populate('attendees', 'fullName avatarUrl')
+        .populate('mentor', 'fullName avatarUrl')
+        .populate('project', 'name');
+
       // Emit socket update to all attendees + mentor
-      const targetUsers = [...new Set([meeting.mentor._id, ...meeting.attendees.map(a => a._id)])];
+      const targetUsers = [...new Set([populatedMeeting.mentor._id, ...populatedMeeting.attendees.map(a => a._id)])];
       targetUsers.forEach(uid => {
         const socketId = req.users?.[uid.toString()];
-        if (socketId) req.io.to(socketId).emit('meetingUpdated', meeting);
+        if (socketId) req.io.to(socketId).emit('meetingUpdated', populatedMeeting);
       });
 
-      res.json(meeting);
+      res.json(populatedMeeting);
     } catch (error) {
       console.error(error);
       res.status(500).json({ message: 'Server error', error });
@@ -152,16 +160,24 @@ router.put(
       }
 
       meeting.status = 'rejected';
+      meeting.lastRescheduleReason = null; // Clear reason on decline
       await meeting.save();
 
+      // Re-fetch to ensure we have the fully populated object for emit
+      const populatedMeeting = await Meeting.findById(meeting._id)
+        .populate('proposer', 'fullName avatarUrl')
+        .populate('attendees', 'fullName avatarUrl')
+        .populate('mentor', 'fullName avatarUrl')
+        .populate('project', 'name');
+
       // Emit socket update to all attendees + mentor
-      const targetUsers = [...new Set([meeting.mentor._id, ...meeting.attendees.map(a => a._id)])];
+      const targetUsers = [...new Set([populatedMeeting.mentor._id, ...populatedMeeting.attendees.map(a => a._id)])];
       targetUsers.forEach(uid => {
         const socketId = req.users?.[uid.toString()];
-        if (socketId) req.io.to(socketId).emit('meetingUpdated', meeting);
+        if (socketId) req.io.to(socketId).emit('meetingUpdated', populatedMeeting);
       });
 
-      res.json(meeting);
+      res.json(populatedMeeting);
     } catch (error) {
       console.error(error);
       res.status(500).json({ message: 'Server error', error });
@@ -282,15 +298,23 @@ router.put(
       }
 
       meeting.status = 'accepted';
+      meeting.lastRescheduleReason = null; // Clear reason on approval
       await meeting.save();
 
-      const targetUsers = [...new Set([meeting.mentor._id, ...meeting.attendees.map(a => a._id)])];
+      // Re-fetch to ensure we have the fully populated object for emit
+      const populatedMeeting = await Meeting.findById(meeting._id)
+        .populate('proposer', 'fullName avatarUrl')
+        .populate('attendees', 'fullName avatarUrl')
+        .populate('mentor', 'fullName avatarUrl')
+        .populate('project', 'name');
+
+      const targetUsers = [...new Set([populatedMeeting.mentor._id, ...populatedMeeting.attendees.map(a => a._id)])];
       targetUsers.forEach(uid => {
         const socketId = req.users?.[uid.toString()];
-        if (socketId) req.io.to(socketId).emit('meetingUpdated', meeting);
+        if (socketId) req.io.to(socketId).emit('meetingUpdated', populatedMeeting);
       });
 
-      res.json(meeting);
+      res.json(populatedMeeting);
     } catch (error) {
       console.error(error);
       res.status(500).json({ message: 'Server error', error });
@@ -325,15 +349,23 @@ router.put(
       }
 
       meeting.status = 'rejected';
+      meeting.lastRescheduleReason = null; // Clear reason on decline
       await meeting.save();
 
-      const targetUsers = [...new Set([meeting.mentor._id, ...meeting.attendees.map(a => a._id)])];
+      // Re-fetch to ensure we have the fully populated object for emit
+      const populatedMeeting = await Meeting.findById(meeting._id)
+        .populate('proposer', 'fullName avatarUrl')
+        .populate('attendees', 'fullName avatarUrl')
+        .populate('mentor', 'fullName avatarUrl')
+        .populate('project', 'name');
+
+      const targetUsers = [...new Set([populatedMeeting.mentor._id, ...populatedMeeting.attendees.map(a => a._id)])];
       targetUsers.forEach(uid => {
         const socketId = req.users?.[uid.toString()];
-        if (socketId) req.io.to(socketId).emit('meetingUpdated', meeting);
+        if (socketId) req.io.to(socketId).emit('meetingUpdated', populatedMeeting);
       });
 
-      res.json(meeting);
+      res.json(populatedMeeting);
     } catch (error) {
       console.error(error);
       res.status(500).json({ message: 'Server error', error });
