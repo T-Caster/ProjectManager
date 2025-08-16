@@ -29,6 +29,10 @@ const meetingSchema = new mongoose.Schema({
     type: mongoose.Schema.Types.ObjectId,
     ref: 'User'
   }],
+  lastRescheduleReason: {
+    type: String,
+    trim: true,
+  },
 }, { timestamps: true });
 
 const Meeting = mongoose.model('Meeting', meetingSchema);

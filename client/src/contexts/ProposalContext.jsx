@@ -80,7 +80,7 @@ export const ProposalProvider = ({ children }) => {
         socket.off('updateProposals', handleUpdateProposals);
       }
     };
-  }, [user, fetchProposals, addOrMoveTop]);
+  }, [user, socket, fetchProposals, addOrMoveTop]);
 
   const value = {
     myProposals,

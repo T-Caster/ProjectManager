@@ -11,24 +11,25 @@ import {
   Chip,
   Snackbar,
   Box,
-  ToggleButton,
-  ToggleButtonGroup,
-  IconButton,
 } from '@mui/material';
 import EventAvailableIcon from '@mui/icons-material/EventAvailable';
 import SchoolIcon from '@mui/icons-material/School';
 import BadgeIcon from '@mui/icons-material/Badge';
-import RefreshIcon from '@mui/icons-material/Refresh';
-import FilterListIcon from '@mui/icons-material/FilterList';
 import { DateTimePicker } from '@mui/x-date-pickers';
 import { AuthUserContext } from '../contexts/AuthUserContext';
-import MeetingCard from '../components/MeetingCard';
-import { Grid } from '@mui/material';
 import { useMeetings } from '../contexts/MeetingContext';
+import MeetingsSection from '../components/MeetingsSection';
 
 const ScheduleMeetingPage = () => {
   const { user } = useContext(AuthUserContext);
-  const { meetings, proposeMeeting, refetchMeetings } = useMeetings();
+  const {
+    meetings,
+    proposeMeeting,
+    refetchMeetings,
+    postponeMeeting,
+    studentApproveMeeting,
+    studentDeclineMeeting,
+  } = useMeetings();
 
   const [project, setProject] = useState(null);
   const [mentor, setMentor] = useState(null);
@@ -91,21 +92,6 @@ const ScheduleMeetingPage = () => {
       setListRefreshing(false);
     }
   };
-
-  const counts = useMemo(() => {
-    const base = { all: meetings?.length || 0, pending: 0, accepted: 0, rejected: 0 };
-    (meetings || []).forEach((m) => {
-      if (m?.status === 'pending') base.pending += 1;
-      else if (m?.status === 'accepted') base.accepted += 1;
-      else if (m?.status === 'rejected') base.rejected += 1;
-    });
-    return base;
-  }, [meetings]);
-
-  const filteredMeetings = useMemo(() => {
-    if (filter === 'all') return meetings || [];
-    return (meetings || []).filter((m) => m?.status === filter);
-  }, [meetings, filter]);
 
   // Early guard pages
   if (user && !user.project) {
@@ -234,99 +220,24 @@ const ScheduleMeetingPage = () => {
         </Stack>
       </Paper>
 
-      {/* Meetings Section */}
-      <Paper
-        elevation={0}
-        sx={(theme) => ({
-          mt: 4,
-          p: 2.5,
-          borderRadius: 3,
-          border: '1px solid',
-          borderColor: 'divider',
-          background: theme.palette.background.paper,
-        })}
-      >
-        {/* Section header: title + filters + refresh + counts */}
-        <Stack
-          direction={{ xs: 'column', sm: 'row' }}
-          spacing={1.5}
-          alignItems={{ xs: 'flex-start', sm: 'center' }}
-          justifyContent="space-between"
-        >
-          <Stack direction="row" spacing={1} alignItems="center" flexWrap="wrap">
-            <Typography variant="h5">Your Meetings</Typography>
-            <Chip size="small" label={`All: ${counts.all}`} />
-            <Chip size="small" color="warning" label={`Pending: ${counts.pending}`} />
-            <Chip size="small" color="success" label={`Scheduled: ${counts.accepted}`} />
-            <Chip size="small" color="error" label={`Rejected: ${counts.rejected}`} />
-          </Stack>
-
-          <Stack direction="row" spacing={1} alignItems="center">
-            <ToggleButtonGroup
-              value={filter}
-              exclusive
-              onChange={(_, v) => v && setFilter(v)}
-              size="small"
-              color="primary"
-            >
-              <ToggleButton value="all">
-                <FilterListIcon fontSize="small" sx={{ mr: 0.5 }} />
-                All
-              </ToggleButton>
-              <ToggleButton value="pending">Pending</ToggleButton>
-              <ToggleButton value="accepted">Scheduled</ToggleButton>
-              <ToggleButton value="rejected">Rejected</ToggleButton>
-            </ToggleButtonGroup>
-
-            <IconButton
-              onClick={handleRefresh}
-              title="Refresh"
-              aria-label="Refresh meetings"
-              size="small"
-              disabled={listRefreshing}
-            >
-              {listRefreshing ? <CircularProgress size={18} /> : <RefreshIcon />}
-            </IconButton>
-          </Stack>
-        </Stack>
-
-        <Divider sx={{ my: 2 }} />
-
-        {/* Content */}
-        {filteredMeetings.length === 0 ? (
-          <Paper
-            elevation={0}
-            sx={(theme) => ({
-              p: 4,
-              borderRadius: 2,
-              border: '1px dashed',
-              borderColor: 'sidebar?.active' || 'divider',
-              textAlign: 'center',
-              background: theme.palette.background.default,
-            })}
-          >
-            <Stack spacing={1.5} alignItems="center">
-              <EventAvailableIcon color="primary" sx={{ fontSize: 36 }} />
-              <Typography variant="h6" color="text.secondary">
-                {filter === 'all'
-                  ? 'No meetings yet.'
-                  : `No ${filter} meetings.`}
-              </Typography>
-              <Typography variant="body2" color="text.secondary">
-                Propose a date and time to get started.
-              </Typography>
-            </Stack>
-          </Paper>
-        ) : (
-          <Grid container spacing={2}>
-            {filteredMeetings.map((meeting) => (
-              <Grid item xs={12} sm={6} md={4} key={meeting._id}>
-                <MeetingCard meeting={meeting} />
-              </Grid>
-            ))}
-          </Grid>
-        )}
-      </Paper>
+      <MeetingsSection
+        title="Your Meetings"
+        meetings={meetings}
+        loading={!meetings}
+        refreshing={listRefreshing}
+        onRefresh={handleRefresh}
+        filter={filter}
+        onFilterChange={setFilter}
+        // MeetingCard props
+        role="student"
+        currentUserId={user?._id}
+        onReschedule={postponeMeeting}
+        onStudentApprove={studentApproveMeeting}
+        onStudentDecline={studentDeclineMeeting}
+        // Custom empty state text
+        emptyStateTitle={filter === 'all' ? 'No meetings yet.' : `No ${filter} meetings.`}
+        emptyStateMessage="Propose a date and time above to get started."
+      />
 
       {/* Bottom snackbars for brief success messages */}
       <Snackbar open={!!success} autoHideDuration={2500} onClose={() => setSuccess('')} message={success} />

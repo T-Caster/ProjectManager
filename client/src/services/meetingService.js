@@ -26,10 +26,28 @@ const declineMeeting = async (meetingId) => {
   return data;
 };
 
+const postponeMeeting = async (meetingId, payload) => {
+  const { data } = await axios.put(`/meetings/${meetingId}/reschedule`, payload);
+  return data;
+};
+
+const studentApproveMeeting = async (meetingId) => {
+  const { data } = await axios.put(`/meetings/${meetingId}/student-approve`);
+  return data;
+};
+
+const studentDeclineMeeting = async (meetingId) => {
+  const { data } = await axios.put(`/meetings/${meetingId}/student-decline`);
+  return data;
+};
+
 export default {
   proposeMeeting,
   getMeetingsByProject,
   getMeetingsForMentor,
   approveMeeting,
   declineMeeting,
+  postponeMeeting,
+  studentApproveMeeting,
+  studentDeclineMeeting,
 };
