@@ -5,6 +5,7 @@ const Project = require('../models/Project');
 const User = require('../models/User');
 const authMiddleware = require('../middleware/authMiddleware');
 const roleMiddleware = require('../middleware/roleMiddleware');
+const updateExpiredMeetingsMiddleware = require('../middleware/updateExpiredMeetingsMiddleware');
 
 // Propose a meeting
 router.post(
@@ -77,6 +78,7 @@ router.post(
 router.get(
   '/:projectId',
   authMiddleware,
+  updateExpiredMeetingsMiddleware,
   async (req, res) => {
     try {
       const meetings = await Meeting.find({ project: req.params.projectId }).populate('proposer', 'fullName').populate('attendees', 'fullName').populate('mentor', 'fullName');
@@ -103,6 +105,10 @@ router.put(
       if (!meeting) return res.status(404).json({ message: 'Meeting not found' });
       if (meeting.mentor._id.toString() !== req.user.id) {
         return res.status(403).json({ message: 'You are not authorized to approve this meeting' });
+      }
+      // Can only approve if a student was the last proposer
+      if (meeting.proposer._id.toString() === meeting.mentor._id.toString()) {
+        return res.status(403).json({ message: 'You cannot approve a meeting you proposed.' });
       }
 
       meeting.status = 'accepted';
@@ -140,6 +146,10 @@ router.put(
       if (meeting.mentor._id.toString() !== req.user.id) {
         return res.status(403).json({ message: 'You are not authorized to decline this meeting' });
       }
+      // Can only decline if a student was the last proposer
+      if (meeting.proposer._id.toString() === meeting.mentor._id.toString()) {
+        return res.status(403).json({ message: 'You cannot decline a meeting you proposed.' });
+      }
 
       meeting.status = 'rejected';
       await meeting.save();
@@ -159,11 +169,184 @@ router.put(
   }
 );
 
+// Reschedule a meeting (mentor or student)
+router.put(
+  '/:meetingId/reschedule',
+  authMiddleware,
+  async (req, res) => {
+    try {
+      const { proposedDate, reason } = req.body;
+      const meetingId = req.params.meetingId;
+      const currentUserId = req.user.id;
+
+      if (!proposedDate) {
+        return res.status(400).json({ message: 'A new date must be proposed.' });
+      }
+
+      const meeting = await Meeting.findById(meetingId).populate('attendees');
+      if (!meeting) {
+        return res.status(404).json({ message: 'Meeting not found' });
+      }
+
+      // Validate status and date before allowing reschedule
+      if (meeting.status === 'rejected' || new Date(meeting.proposedDate) < new Date()) {
+        return res.status(403).json({ message: 'Cannot reschedule a rejected or past meeting.' });
+      }
+
+      // Authorization: must be mentor or an attendee (student)
+      const isMentor = meeting.mentor.toString() === currentUserId;
+      const isAttendee = meeting.attendees.some(a => a._id.toString() === currentUserId);
+      if (!isMentor && !isAttendee) {
+        return res.status(403).json({ message: 'You are not authorized to reschedule this meeting.' });
+      }
+
+      // Validation
+      const proposedDateTime = new Date(proposedDate);
+      if (proposedDateTime.getTime() <= Date.now()) {
+        return res.status(400).json({ message: 'Meeting must be in the future.' });
+      }
+      const proposedHour = proposedDateTime.getHours();
+      if (proposedHour < 8 || proposedHour >= 17) {
+        return res.status(400).json({ message: 'Meetings can only be scheduled between 8:00 and 17:00' });
+      }
+
+      // Mentor availability check (30-min buffer)
+      const thirtyMinutes = 30 * 60 * 1000;
+      const mentorMeetings = await Meeting.find({
+        mentor: meeting.mentor,
+        _id: { $ne: meetingId }, // Exclude the current meeting
+        status: 'accepted',
+      });
+
+      const conflictingMeeting = mentorMeetings.find(m => {
+        const existingMeetingTime = new Date(m.proposedDate).getTime();
+        return Math.abs(existingMeetingTime - proposedDateTime.getTime()) < thirtyMinutes;
+      });
+
+      if (conflictingMeeting) {
+        return res.status(400).json({ message: 'Mentor is unavailable at this time due to a conflict.' });
+      }
+
+      // Update meeting
+      meeting.proposedDate = proposedDateTime;
+      meeting.status = 'pending';
+      meeting.proposer = currentUserId;
+      meeting.lastRescheduleReason = reason || '';
+      await meeting.save();
+
+      const populatedMeeting = await Meeting.findById(meetingId)
+        .populate('proposer', 'fullName avatarUrl')
+        .populate('attendees', 'fullName avatarUrl')
+        .populate('mentor', 'fullName avatarUrl')
+        .populate('project', 'name');
+
+      // Emit socket update to all participants
+      const targetUsers = [...new Set([populatedMeeting.mentor._id, ...populatedMeeting.attendees.map(a => a._id)])];
+      targetUsers.forEach(uid => {
+        const socketId = req.users?.[uid.toString()];
+        if (socketId) req.io.to(socketId).emit('meetingUpdated', populatedMeeting);
+      });
+
+      res.json(populatedMeeting);
+    } catch (error) {
+      console.error(error);
+      res.status(500).json({ message: 'Server error', error });
+    }
+  }
+);
+
+// Student approves a meeting
+router.put(
+  '/:meetingId/student-approve',
+  authMiddleware,
+  roleMiddleware(['student']),
+  async (req, res) => {
+    try {
+      const meeting = await Meeting.findById(req.params.meetingId)
+        .populate('proposer', 'fullName avatarUrl')
+        .populate('attendees', 'fullName avatarUrl')
+        .populate('mentor', 'fullName avatarUrl')
+        .populate('project', 'name');
+
+      if (!meeting) return res.status(404).json({ message: 'Meeting not found' });
+
+      // Authorize: user must be an attendee
+      const isAttendee = meeting.attendees.some(a => a._id.toString() === req.user.id);
+      if (!isAttendee) {
+        return res.status(403).json({ message: 'You are not an attendee of this meeting.' });
+      }
+
+      // Can only approve if mentor was the last proposer
+      if (meeting.proposer._id.toString() !== meeting.mentor._id.toString()) {
+        return res.status(403).json({ message: 'You cannot approve a meeting you or another student proposed.' });
+      }
+
+      meeting.status = 'accepted';
+      await meeting.save();
+
+      const targetUsers = [...new Set([meeting.mentor._id, ...meeting.attendees.map(a => a._id)])];
+      targetUsers.forEach(uid => {
+        const socketId = req.users?.[uid.toString()];
+        if (socketId) req.io.to(socketId).emit('meetingUpdated', meeting);
+      });
+
+      res.json(meeting);
+    } catch (error) {
+      console.error(error);
+      res.status(500).json({ message: 'Server error', error });
+    }
+  }
+);
+
+// Student declines a meeting
+router.put(
+  '/:meetingId/student-decline',
+  authMiddleware,
+  roleMiddleware(['student']),
+  async (req, res) => {
+    try {
+      const meeting = await Meeting.findById(req.params.meetingId)
+        .populate('proposer', 'fullName avatarUrl')
+        .populate('attendees', 'fullName avatarUrl')
+        .populate('mentor', 'fullName avatarUrl')
+        .populate('project', 'name');
+
+      if (!meeting) return res.status(404).json({ message: 'Meeting not found' });
+
+      // Authorize: user must be an attendee
+      const isAttendee = meeting.attendees.some(a => a._id.toString() === req.user.id);
+      if (!isAttendee) {
+        return res.status(403).json({ message: 'You are not an attendee of this meeting.' });
+      }
+
+      // Can only decline if mentor was the last proposer
+      if (meeting.proposer._id.toString() !== meeting.mentor._id.toString()) {
+        return res.status(403).json({ message: 'You cannot decline a meeting you or another student proposed.' });
+      }
+
+      meeting.status = 'rejected';
+      await meeting.save();
+
+      const targetUsers = [...new Set([meeting.mentor._id, ...meeting.attendees.map(a => a._id)])];
+      targetUsers.forEach(uid => {
+        const socketId = req.users?.[uid.toString()];
+        if (socketId) req.io.to(socketId).emit('meetingUpdated', meeting);
+      });
+
+      res.json(meeting);
+    } catch (error) {
+      console.error(error);
+      res.status(500).json({ message: 'Server error', error });
+    }
+  }
+);
+
 // Mentor: list my meetings
 router.get(
   '/for-mentor/me',
   authMiddleware,
   roleMiddleware(['mentor']),
+  updateExpiredMeetingsMiddleware,
   async (req, res) => {
     try {
       const meetings = await Meeting.find({ mentor: req.user.id })
