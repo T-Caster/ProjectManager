@@ -130,7 +130,7 @@ const MeetingCard = ({
           title={
             <Stack direction="row" spacing={1} alignItems="center" flexWrap="wrap">
               <Typography variant="h6" sx={{ lineHeight: 1.2 }}>
-                {project?.name ? `Project: ${project.name}` : 'Meeting'}
+                {project?.name ? `Meeting: ${project.name}` : 'Meeting'}
               </Typography>
               <Chip
                 size="small"
@@ -184,6 +184,19 @@ const MeetingCard = ({
                 </Avatar>
               ))}
             </AvatarGroup>
+            <Typography variant="body2" noWrap>
+              {attendees
+                .map((a) =>
+                  a._id ? (
+                    <MuiLink key={a._id} component={Link} to={PROFILE_ROUTE(a._id)} underline="hover">
+                      {a.fullName}
+                    </MuiLink>
+                  ) : (
+                    a.fullName
+                  )
+                )
+                .reduce((prev, curr) => [prev, ', ', curr])}
+            </Typography>
           </Stack>
 
           {meeting.lastRescheduleReason && (
