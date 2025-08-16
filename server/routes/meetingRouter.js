@@ -7,6 +7,13 @@ const authMiddleware = require('../middleware/authMiddleware');
 const roleMiddleware = require('../middleware/roleMiddleware');
 const updateExpiredMeetingsMiddleware = require('../middleware/updateExpiredMeetingsMiddleware');
 
+const meetingPopulateOptions = [
+  { path: 'proposer', select: 'fullName avatarUrl' },
+  { path: 'attendees', select: 'fullName avatarUrl' },
+  { path: 'mentor', select: 'fullName avatarUrl' },
+  { path: 'project', select: 'name' },
+];
+
 // Propose a meeting
 router.post(
   '/propose',
@@ -58,7 +65,7 @@ router.post(
 
       await meeting.save();
 
-      const populatedMeeting = await Meeting.findById(meeting._id).populate('proposer', 'fullName').populate('attendees', 'fullName').populate('mentor', 'fullName');
+      const populatedMeeting = await Meeting.findById(meeting._id).populate(meetingPopulateOptions);
 
       attendees.forEach(attendee => {
         const socketId = req.users[attendee._id.toString()];
@@ -81,7 +88,12 @@ router.get(
   updateExpiredMeetingsMiddleware,
   async (req, res) => {
     try {
-      const meetings = await Meeting.find({ project: req.params.projectId }).populate('proposer', 'fullName').populate('attendees', 'fullName').populate('mentor', 'fullName');
+      const meetings = await Meeting.find({ project: req.params.projectId }).populate([
+        { path: 'proposer', select: 'fullName avatarUrl' },
+        { path: 'attendees', select: 'fullName avatarUrl' },
+        { path: 'mentor', select: 'fullName avatarUrl' },
+        { path: 'project', select: 'name' },
+      ]);
       res.json(meetings);
     } catch (error) {
       res.status(500).json({ message: 'Server error', error });
@@ -96,40 +108,29 @@ router.put(
   roleMiddleware(['mentor']),
   async (req, res) => {
     try {
-      const meeting = await Meeting.findById(req.params.meetingId)
-        .populate('proposer', 'fullName avatarUrl')
-        .populate('attendees', 'fullName avatarUrl')
-        .populate('mentor', 'fullName avatarUrl')
-        .populate('project', 'name');
+      let meeting = await Meeting.findById(req.params.meetingId);
 
       if (!meeting) return res.status(404).json({ message: 'Meeting not found' });
-      if (meeting.mentor._id.toString() !== req.user.id) {
+      if (meeting.mentor.toString() !== req.user.id) {
         return res.status(403).json({ message: 'You are not authorized to approve this meeting' });
       }
-      // Can only approve if a student was the last proposer
-      if (meeting.proposer._id.toString() === meeting.mentor._id.toString()) {
+      if (meeting.proposer.toString() === meeting.mentor.toString()) {
         return res.status(403).json({ message: 'You cannot approve a meeting you proposed.' });
       }
 
       meeting.status = 'accepted';
-      meeting.lastRescheduleReason = null; // Clear reason on approval
+      meeting.lastRescheduleReason = null;
       await meeting.save();
 
-      // Re-fetch to ensure we have the fully populated object for emit
-      const populatedMeeting = await Meeting.findById(meeting._id)
-        .populate('proposer', 'fullName avatarUrl')
-        .populate('attendees', 'fullName avatarUrl')
-        .populate('mentor', 'fullName avatarUrl')
-        .populate('project', 'name');
+      meeting = await Meeting.findById(meeting._id).populate(meetingPopulateOptions);
 
-      // Emit socket update to all attendees + mentor
-      const targetUsers = [...new Set([populatedMeeting.mentor._id, ...populatedMeeting.attendees.map(a => a._id)])];
+      const targetUsers = [...new Set([meeting.mentor._id, ...meeting.attendees.map(a => a._id)])];
       targetUsers.forEach(uid => {
         const socketId = req.users?.[uid.toString()];
-        if (socketId) req.io.to(socketId).emit('meetingUpdated', populatedMeeting);
+        if (socketId) req.io.to(socketId).emit('meetingUpdated', meeting);
       });
 
-      res.json(populatedMeeting);
+      res.json(meeting);
     } catch (error) {
       console.error(error);
       res.status(500).json({ message: 'Server error', error });
@@ -144,40 +145,29 @@ router.put(
   roleMiddleware(['mentor']),
   async (req, res) => {
     try {
-      const meeting = await Meeting.findById(req.params.meetingId)
-        .populate('proposer', 'fullName avatarUrl')
-        .populate('attendees', 'fullName avatarUrl')
-        .populate('mentor', 'fullName avatarUrl')
-        .populate('project', 'name');
+      let meeting = await Meeting.findById(req.params.meetingId);
 
       if (!meeting) return res.status(404).json({ message: 'Meeting not found' });
-      if (meeting.mentor._id.toString() !== req.user.id) {
+      if (meeting.mentor.toString() !== req.user.id) {
         return res.status(403).json({ message: 'You are not authorized to decline this meeting' });
       }
-      // Can only decline if a student was the last proposer
-      if (meeting.proposer._id.toString() === meeting.mentor._id.toString()) {
+      if (meeting.proposer.toString() === meeting.mentor.toString()) {
         return res.status(403).json({ message: 'You cannot decline a meeting you proposed.' });
       }
 
       meeting.status = 'rejected';
-      meeting.lastRescheduleReason = null; // Clear reason on decline
+      meeting.lastRescheduleReason = null;
       await meeting.save();
 
-      // Re-fetch to ensure we have the fully populated object for emit
-      const populatedMeeting = await Meeting.findById(meeting._id)
-        .populate('proposer', 'fullName avatarUrl')
-        .populate('attendees', 'fullName avatarUrl')
-        .populate('mentor', 'fullName avatarUrl')
-        .populate('project', 'name');
+      meeting = await Meeting.findById(meeting._id).populate(meetingPopulateOptions);
 
-      // Emit socket update to all attendees + mentor
-      const targetUsers = [...new Set([populatedMeeting.mentor._id, ...populatedMeeting.attendees.map(a => a._id)])];
+      const targetUsers = [...new Set([meeting.mentor._id, ...meeting.attendees.map(a => a._id)])];
       targetUsers.forEach(uid => {
         const socketId = req.users?.[uid.toString()];
-        if (socketId) req.io.to(socketId).emit('meetingUpdated', populatedMeeting);
+        if (socketId) req.io.to(socketId).emit('meetingUpdated', meeting);
       });
 
-      res.json(populatedMeeting);
+      res.json(meeting);
     } catch (error) {
       console.error(error);
       res.status(500).json({ message: 'Server error', error });
@@ -199,24 +189,21 @@ router.put(
         return res.status(400).json({ message: 'A new date must be proposed.' });
       }
 
-      const meeting = await Meeting.findById(meetingId).populate('attendees');
+      let meeting = await Meeting.findById(meetingId);
       if (!meeting) {
         return res.status(404).json({ message: 'Meeting not found' });
       }
 
-      // Validate status and date before allowing reschedule
       if (meeting.status === 'rejected' || new Date(meeting.proposedDate) < new Date()) {
         return res.status(403).json({ message: 'Cannot reschedule a rejected or past meeting.' });
       }
 
-      // Authorization: must be mentor or an attendee (student)
       const isMentor = meeting.mentor.toString() === currentUserId;
-      const isAttendee = meeting.attendees.some(a => a._id.toString() === currentUserId);
+      const isAttendee = meeting.attendees.some(a => a.toString() === currentUserId);
       if (!isMentor && !isAttendee) {
         return res.status(403).json({ message: 'You are not authorized to reschedule this meeting.' });
       }
 
-      // Validation
       const proposedDateTime = new Date(proposedDate);
       if (proposedDateTime.getTime() <= Date.now()) {
         return res.status(400).json({ message: 'Meeting must be in the future.' });
@@ -226,11 +213,10 @@ router.put(
         return res.status(400).json({ message: 'Meetings can only be scheduled between 8:00 and 17:00' });
       }
 
-      // Mentor availability check (30-min buffer)
       const thirtyMinutes = 30 * 60 * 1000;
       const mentorMeetings = await Meeting.find({
         mentor: meeting.mentor,
-        _id: { $ne: meetingId }, // Exclude the current meeting
+        _id: { $ne: meetingId },
         status: 'accepted',
       });
 
@@ -243,20 +229,14 @@ router.put(
         return res.status(400).json({ message: 'Mentor is unavailable at this time due to a conflict.' });
       }
 
-      // Update meeting
       meeting.proposedDate = proposedDateTime;
       meeting.status = 'pending';
       meeting.proposer = currentUserId;
       meeting.lastRescheduleReason = reason || '';
       await meeting.save();
 
-      const populatedMeeting = await Meeting.findById(meetingId)
-        .populate('proposer', 'fullName avatarUrl')
-        .populate('attendees', 'fullName avatarUrl')
-        .populate('mentor', 'fullName avatarUrl')
-        .populate('project', 'name');
+      const populatedMeeting = await Meeting.findById(meetingId).populate(meetingPopulateOptions);
 
-      // Emit socket update to all participants
       const targetUsers = [...new Set([populatedMeeting.mentor._id, ...populatedMeeting.attendees.map(a => a._id)])];
       targetUsers.forEach(uid => {
         const socketId = req.users?.[uid.toString()];
@@ -278,43 +258,32 @@ router.put(
   roleMiddleware(['student']),
   async (req, res) => {
     try {
-      const meeting = await Meeting.findById(req.params.meetingId)
-        .populate('proposer', 'fullName avatarUrl')
-        .populate('attendees', 'fullName avatarUrl')
-        .populate('mentor', 'fullName avatarUrl')
-        .populate('project', 'name');
+      let meeting = await Meeting.findById(req.params.meetingId);
 
       if (!meeting) return res.status(404).json({ message: 'Meeting not found' });
 
-      // Authorize: user must be an attendee
-      const isAttendee = meeting.attendees.some(a => a._id.toString() === req.user.id);
+      const isAttendee = meeting.attendees.some(a => a.toString() === req.user.id);
       if (!isAttendee) {
         return res.status(403).json({ message: 'You are not an attendee of this meeting.' });
       }
 
-      // Can only approve if mentor was the last proposer
-      if (meeting.proposer._id.toString() !== meeting.mentor._id.toString()) {
+      if (meeting.proposer.toString() !== meeting.mentor.toString()) {
         return res.status(403).json({ message: 'You cannot approve a meeting you or another student proposed.' });
       }
 
       meeting.status = 'accepted';
-      meeting.lastRescheduleReason = null; // Clear reason on approval
+      meeting.lastRescheduleReason = null;
       await meeting.save();
 
-      // Re-fetch to ensure we have the fully populated object for emit
-      const populatedMeeting = await Meeting.findById(meeting._id)
-        .populate('proposer', 'fullName avatarUrl')
-        .populate('attendees', 'fullName avatarUrl')
-        .populate('mentor', 'fullName avatarUrl')
-        .populate('project', 'name');
+      meeting = await Meeting.findById(meeting._id).populate(meetingPopulateOptions);
 
-      const targetUsers = [...new Set([populatedMeeting.mentor._id, ...populatedMeeting.attendees.map(a => a._id)])];
+      const targetUsers = [...new Set([meeting.mentor._id, ...meeting.attendees.map(a => a._id)])];
       targetUsers.forEach(uid => {
         const socketId = req.users?.[uid.toString()];
-        if (socketId) req.io.to(socketId).emit('meetingUpdated', populatedMeeting);
+        if (socketId) req.io.to(socketId).emit('meetingUpdated', meeting);
       });
 
-      res.json(populatedMeeting);
+      res.json(meeting);
     } catch (error) {
       console.error(error);
       res.status(500).json({ message: 'Server error', error });
@@ -329,43 +298,32 @@ router.put(
   roleMiddleware(['student']),
   async (req, res) => {
     try {
-      const meeting = await Meeting.findById(req.params.meetingId)
-        .populate('proposer', 'fullName avatarUrl')
-        .populate('attendees', 'fullName avatarUrl')
-        .populate('mentor', 'fullName avatarUrl')
-        .populate('project', 'name');
+      let meeting = await Meeting.findById(req.params.meetingId);
 
       if (!meeting) return res.status(404).json({ message: 'Meeting not found' });
 
-      // Authorize: user must be an attendee
-      const isAttendee = meeting.attendees.some(a => a._id.toString() === req.user.id);
+      const isAttendee = meeting.attendees.some(a => a.toString() === req.user.id);
       if (!isAttendee) {
         return res.status(403).json({ message: 'You are not an attendee of this meeting.' });
       }
 
-      // Can only decline if mentor was the last proposer
-      if (meeting.proposer._id.toString() !== meeting.mentor._id.toString()) {
+      if (meeting.proposer.toString() !== meeting.mentor.toString()) {
         return res.status(403).json({ message: 'You cannot decline a meeting you or another student proposed.' });
       }
 
       meeting.status = 'rejected';
-      meeting.lastRescheduleReason = null; // Clear reason on decline
+      meeting.lastRescheduleReason = null;
       await meeting.save();
 
-      // Re-fetch to ensure we have the fully populated object for emit
-      const populatedMeeting = await Meeting.findById(meeting._id)
-        .populate('proposer', 'fullName avatarUrl')
-        .populate('attendees', 'fullName avatarUrl')
-        .populate('mentor', 'fullName avatarUrl')
-        .populate('project', 'name');
+      meeting = await Meeting.findById(meeting._id).populate(meetingPopulateOptions);
 
-      const targetUsers = [...new Set([populatedMeeting.mentor._id, ...populatedMeeting.attendees.map(a => a._id)])];
+      const targetUsers = [...new Set([meeting.mentor._id, ...meeting.attendees.map(a => a._id)])];
       targetUsers.forEach(uid => {
         const socketId = req.users?.[uid.toString()];
-        if (socketId) req.io.to(socketId).emit('meetingUpdated', populatedMeeting);
+        if (socketId) req.io.to(socketId).emit('meetingUpdated', meeting);
       });
 
-      res.json(populatedMeeting);
+      res.json(meeting);
     } catch (error) {
       console.error(error);
       res.status(500).json({ message: 'Server error', error });
@@ -381,11 +339,7 @@ router.get(
   updateExpiredMeetingsMiddleware,
   async (req, res) => {
     try {
-      const meetings = await Meeting.find({ mentor: req.user.id })
-        .populate('proposer', 'fullName avatarUrl')
-        .populate('attendees', 'fullName avatarUrl')
-        .populate('mentor', 'fullName avatarUrl')
-        .populate('project', 'name');
+      const meetings = await Meeting.find({ mentor: req.user.id }).populate(meetingPopulateOptions);
       res.json(meetings);
     } catch (error) {
       console.error(error);
