@@ -140,7 +140,7 @@ router.delete("/delete-user", authMiddleware, async (req, res) => {
 // Get current user info (without sensitive data)
 router.get("/me", authMiddleware, async (req, res) => {
   try {
-    const user = await User.findById(req.user.id).populate("mentor", "fullName").select("-password -recoveryCode -resetPasswordToken -resetPasswordExpires");
+    const user = await User.findById(req.user.id).populate("mentor", "fullName").populate("project").select("-password -recoveryCode -resetPasswordToken -resetPasswordExpires");
     if (!user) return res.status(404).json({ error: "User not found" });
     res.json(user);
   } catch (err) {

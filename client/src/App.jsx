@@ -18,21 +18,25 @@ import AllProjectsPage from "./pages/AllProjectsPage";
 import { ProposalProvider } from "./contexts/ProposalContext";
 import ProposalsQueuePage from "./pages/ProposalsQueuePage";
 import ProposalReviewPage from "./pages/ProposalReviewPage";
+import { LocalizationProvider } from '@mui/x-date-pickers';
+import { AdapterDayjs } from '@mui/x-date-pickers/AdapterDayjs'
+import { MeetingProvider } from "./contexts/MeetingContext";
 
 export default function App() {
   return (
-    <Routes>
-      <Route path="/" element={<AuthRoute><LoginPage /></AuthRoute>} />
-      <Route path="/login" element={<AuthRoute><LoginPage /></AuthRoute>} />
-      <Route path="/register" element={<AuthRoute><RegisterPage /></AuthRoute>} />
-      <Route path="/forgot-password" element={<AuthRoute><ForgotPasswordPage /></AuthRoute>} />
-      <Route path="/reset-password" element={<AuthRoute><ResetPasswordPage /></AuthRoute>} />
-      <Route path="/reset-password/:token" element={<AuthRoute><ResetPasswordPage /></AuthRoute>} />
+    <LocalizationProvider dateAdapter={AdapterDayjs}>
+      <Routes>
+        <Route path="/" element={<AuthRoute><LoginPage /></AuthRoute>} />
+        <Route path="/login" element={<AuthRoute><LoginPage /></AuthRoute>} />
+        <Route path="/register" element={<AuthRoute><RegisterPage /></AuthRoute>} />
+        <Route path="/forgot-password" element={<AuthRoute><ForgotPasswordPage /></AuthRoute>} />
+        <Route path="/reset-password" element={<AuthRoute><ResetPasswordPage /></AuthRoute>} />
+        <Route path="/reset-password/:token" element={<AuthRoute><ResetPasswordPage /></AuthRoute>} />
 
-      <Route element={<AuthGuard><ProposalProvider><DashboardLayout /></ProposalProvider></AuthGuard>}>
-        <Route path="/dashboard" element={<DashboardPage />} />
-        <Route path="/profile" element={<ProfilePage />} />
-        <Route path="/profile/:id" element={<ProfilePage />} />
+        <Route element={<AuthGuard><ProposalProvider><MeetingProvider><DashboardLayout /></MeetingProvider></ProposalProvider></AuthGuard>}>
+          <Route path="/dashboard" element={<DashboardPage />} />
+          <Route path="/profile" element={<ProfilePage />} />
+          <Route path="/profile/:id" element={<ProfilePage />} />
 
         {/* Student Routes */}
         <Route element={<RoleBasedGuard roles={['student']} />}>
@@ -57,6 +61,7 @@ export default function App() {
           <Route path="/proposal-review/:proposalId" element={<ProposalReviewPage />} />
         </Route>
       </Route>
-    </Routes>
+      </Routes>
+    </LocalizationProvider>
   );
 }
