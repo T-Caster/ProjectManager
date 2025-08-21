@@ -21,29 +21,39 @@ const pdfUpload = multer({
   limits: { fileSize: 10 * 1024 * 1024 },
 });
 
-// ------- helpers to target recipients over socket.io -------
-const getAllSockets = async (io) => (io ? io.fetchSockets() : []);
+/**
+ * --------- Socket helpers (aligned with meetings/tasks style) ---------
+ * We emit by userId using req.users[userId] -> socketId mapping.
+ * Event name remains "updateProposals" to keep the client wiring intact.
+ */
 
-// Emits to all HODs
-const emitToHods = async (io) => {
-  if (!io) return;
-  const sockets = await getAllSockets(io);
-  sockets
-    .filter((s) => s.user && s.user.role === "hod")
-    .forEach((s) => s.emit("updateProposals"));
+// Emit "updateProposals" to a list of userIds (strings/ObjectIds ok)
+const emitToUserIds = (req, userIds) => {
+  if (!req?.io || !req?.users || !Array.isArray(userIds) || userIds.length === 0) return;
+  const unique = [...new Set(userIds.map((id) => id?.toString()).filter(Boolean))];
+  unique.forEach((uid) => {
+    const sid = req.users[uid];
+    if (sid) req.io.to(sid).emit("updateProposals");
+  });
 };
 
-// Emits to a list of specific user IDs
-const emitToUsers = async (io, userIds) => {
-  if (!io || !userIds || userIds.length === 0) return;
-  const sockets = await getAllSockets(io);
-  const userSet = new Set(userIds.map(id => id.toString()));
-  sockets
-    .filter((s) => s.user && userSet.has(s.user.id.toString()))
-    .forEach((s) => s.emit("updateProposals"));
+// Emit "updateProposals" to all HODs by looking up their userIds
+const emitToHods = async (req) => {
+  if (!req?.io || !req?.users) return;
+  const hods = await User.find({ role: "hod" }).select("_id").lean();
+  const ids = hods.map((h) => h._id);
+  emitToUserIds(req, ids);
 };
 
-// Helper: student eligibility
+// Convenience wrapper for students (author + optional coStudent)
+const emitToProposalStudents = async (req, proposal) => {
+  const studentIds = [proposal.author, proposal.coStudent].filter(Boolean);
+  emitToUserIds(req, studentIds);
+};
+
+/**
+ * Helper: student eligibility (unchanged)
+ */
 const checkStudentEligibility = async (studentId) => {
   const student = await User.findById(studentId);
   if (!student || student.isInProject) {
@@ -58,6 +68,8 @@ const checkStudentEligibility = async (studentId) => {
   }
   return { eligible: true, student };
 };
+
+// ---------- Routes (logic unchanged) ----------
 
 // Upload a proposal PDF
 router.post("/upload", authMiddleware, pdfUpload.single("proposalPdf"), async (req, res) => {
@@ -85,15 +97,6 @@ router.post("/upload", authMiddleware, pdfUpload.single("proposalPdf"), async (r
 
 /**
  * Create or update a proposal draft.
- * Body can include:
- * - proposalId (for update)
- * - projectName, background, objectives, marketReview, newOrImproved
- * - address, mobilePhone, endOfStudies      <-- stored on Proposal (not on User)
- * - coStudent, suggestedMentor
- * - removeCoStudent: true  (explicitly clear coStudent)
- * - removeSuggestedMentor: true  (explicitly clear suggestedMentor)
- * - attachmentId (to set/replace attachment)
- * - removeAttachment: true (to clear attachments)
  */
 router.post("/draft", authMiddleware, roleMiddleware(["student"]), async (req, res) => {
   try {
@@ -103,7 +106,6 @@ router.post("/draft", authMiddleware, roleMiddleware(["student"]), async (req, r
       return res.status(400).json({ msg: "You are already in a project and cannot create a new proposal." });
     }
 
-    // Pull out fields we handle specially; leave the rest in proposalData
     const {
       proposalId,
       attachmentId,
@@ -112,27 +114,19 @@ router.post("/draft", authMiddleware, roleMiddleware(["student"]), async (req, r
       removeSuggestedMentor,
       endOfStudies,
       address,
-      mobilePhone, // ignored (we enforce student's phone)
+      mobilePhone, // ignored
       ...proposalData
     } = req.body;
 
-    // Normalize/trim proposal-level contact fields
     proposalData.address = typeof address === "string" ? address.trim() : (address ?? "");
-    // Enforce phone from user profile (read-only)
     proposalData.mobilePhone = (student.phoneNumber || "").trim();
 
-    // Parse endOfStudies safely (accepts "YYYY-MM-DD")
     if (endOfStudies) {
       const d = new Date(endOfStudies);
-      if (!isNaN(d.getTime())) {
-        proposalData.endOfStudies = d;
-      } else {
-        // If client sent an invalid date string, drop it to avoid poisoning the doc
-        delete proposalData.endOfStudies;
-      }
+      if (!isNaN(d.getTime())) proposalData.endOfStudies = d;
+      else delete proposalData.endOfStudies;
     }
 
-    // Handle optional removals
     let shouldUnsetCoStudent = false;
     let shouldUnsetSuggestedMentor = false;
 
@@ -155,7 +149,6 @@ router.post("/draft", authMiddleware, roleMiddleware(["student"]), async (req, r
       return res.status(400).json({ msg: "Invalid mentor ID." });
     }
 
-    // Attachments
     let nextAttachments;
     if (attachmentId) {
       if (!mongoose.Types.ObjectId.isValid(attachmentId)) {
@@ -170,7 +163,6 @@ router.post("/draft", authMiddleware, roleMiddleware(["student"]), async (req, r
       nextAttachments = [];
     }
 
-    // Minimal author snapshot
     const authorSnapshot = {
       fullName: student.fullName,
       idNumber: student.idNumber,
@@ -178,7 +170,6 @@ router.post("/draft", authMiddleware, roleMiddleware(["student"]), async (req, r
 
     let proposal;
     if (proposalId) {
-      // UPDATE existing (Draft/Rejected)
       const filter = { _id: proposalId, author: req.user.id, status: { $in: ["Draft", "Rejected"] } };
       const update = { ...proposalData, authorSnapshot, status: "Draft" };
       if (nextAttachments !== undefined) update.attachments = nextAttachments;
@@ -191,7 +182,6 @@ router.post("/draft", authMiddleware, roleMiddleware(["student"]), async (req, r
       proposal = await Proposal.findOneAndUpdate(filter, update, { new: true, runValidators: true });
       if (!proposal) return res.status(404).json({ msg: "Draft not found or permission denied." });
     } else {
-      // CREATE new Draft
       const newProposalData = { ...proposalData, author: req.user.id, authorSnapshot, status: "Draft" };
       if (shouldUnsetCoStudent) delete newProposalData.coStudent;
       if (shouldUnsetSuggestedMentor) delete newProposalData.suggestedMentor;
@@ -238,19 +228,16 @@ router.put("/:id/submit", authMiddleware, roleMiddleware(["student"]), async (re
     proposal.submittedAt = new Date();
     await proposal.save();
 
-    // 🔧 NEW: hydrate the payload before emitting so the queue sees mentor name immediately
-    let payload = await Proposal.findById(proposal._id)
+    // (Hydrated payload kept as-is; clients listen to "updateProposals" to refresh)
+    await Proposal.findById(proposal._id)
       .populate("suggestedMentor", "fullName")
       .select("projectName status submittedAt authorSnapshot coStudentSnapshot suggestedMentor attachments createdAt updatedAt")
       .lean();
 
-    if (req.io) {
-      await emitToHods(req.io);
-      const studentIds = [proposal.author, proposal.coStudent].filter(Boolean);
-      await emitToUsers(req.io, studentIds);
-    }
+    // Socket: notify HODs + involved students using req.users map
+    await emitToHods(req);
+    await emitToProposalStudents(req, proposal);
 
-    // You can still return the saved doc to the student; not required to be populated
     res.json(proposal);
   } catch (error) {
     console.error(error);
@@ -289,11 +276,7 @@ router.get("/my", authMiddleware, roleMiddleware(["student"]), async (req, res) 
   try {
     const proposals = await Proposal.find({
       $or: [
-        // 1) Any proposal authored by this user (regardless of status)
         { author: req.user.id },
-
-        // 2) Proposals where this user is the co-student,
-        //    but only if status is Pending or Approved
         { coStudent: req.user.id, status: { $in: ["Pending", "Approved"] } },
       ],
     }).sort({ createdAt: -1 });
@@ -368,7 +351,6 @@ router.get("/:id", authMiddleware, async (req, res) => {
     const isAuthor = proposal.author.toString() === req.user.id;
     const isCoStudent = proposal.coStudent && proposal.coStudent.toString() === req.user.id;
 
-    // Co-student can view only when the proposal is Pending or Approved
     const coStudentCanView = isCoStudent && ["Pending", "Approved"].includes(proposal.status);
 
     if (!isHod && !isAuthor && !coStudentCanView) {
@@ -399,11 +381,9 @@ router.put("/:id/reject", authMiddleware, roleMiddleware(["hod"]), async (req, r
     proposal.reviewedAt = new Date();
     await proposal.save();
 
-    if (req.io) {
-      await emitToHods(req.io);
-      const studentIds = [proposal.author, proposal.coStudent].filter(Boolean);
-      await emitToUsers(req.io, studentIds);
-    }
+    // Notify HODs + involved students via req.users map
+    await emitToHods(req);
+    await emitToProposalStudents(req, proposal);
 
     res.json(proposal);
   } catch (error) {
@@ -412,26 +392,23 @@ router.put("/:id/reject", authMiddleware, roleMiddleware(["hod"]), async (req, r
   }
 });
 
-// Approve a proposal (HOD only) — no transactions, simple sequential writes
+// Approve a proposal (HOD only)
 router.put("/:id/approve", authMiddleware, roleMiddleware(["hod"]), async (req, res) => {
   try {
     const { mentorId } = req.body;
 
-    // 1) Load proposal
     const proposal = await Proposal.findById(req.params.id);
     if (!proposal) return res.status(404).json({ msg: "Proposal not found" });
     if (proposal.status !== "Pending") {
       return res.status(400).json({ msg: "Can only approve a pending proposal" });
     }
 
-    // 2) Resolve final mentor
     const finalMentorId = mentorId || proposal.suggestedMentor;
     if (!finalMentorId) {
       return res.status(400).json({ msg: "Mentor must be assigned before approval" });
     }
     const mentorUser = await User.findById(finalMentorId).select("fullName").lean();
 
-    // 3) Create Project from proposal
     const newProject = new Project({
       name: proposal.projectName,
       background: proposal.background || "",
@@ -442,7 +419,7 @@ router.put("/:id/approve", authMiddleware, roleMiddleware(["hod"]), async (req, 
       snapshots: {
         studentNames: [
           proposal.authorSnapshot?.fullName || "",
-          ...(proposal.coStudentSnapshot ? [proposal.coStudentSnapshot.fullName] : [])
+          ...(proposal.coStudentSnapshot ? [proposal.coStudentSnapshot.fullName] : []),
         ],
         mentorName: mentorUser?.fullName || "",
         approvedAt: new Date(),
@@ -451,20 +428,17 @@ router.put("/:id/approve", authMiddleware, roleMiddleware(["hod"]), async (req, 
     });
     const savedProject = await newProject.save();
 
-    // 4) Mark proposal as approved
     proposal.status = "Approved";
     proposal.approval = { approvedBy: req.user.id, decision: "Approved" };
     proposal.reviewedAt = new Date();
     await proposal.save();
 
-    // 5) Update involved students
     const studentIds = [proposal.author, ...(proposal.coStudent ? [proposal.coStudent] : [])];
     await User.updateMany(
       { _id: { $in: studentIds } },
       { $set: { isInProject: true, project: savedProject._id, mentor: finalMentorId } }
     );
 
-    // 6) Reject conflicting pending proposals for those students
     const conflictingProposals = await Proposal.find({
       _id: { $ne: proposal._id },
       status: "Pending",
@@ -477,20 +451,14 @@ router.put("/:id/approve", authMiddleware, roleMiddleware(["hod"]), async (req, 
       p.approval = { decision: "Rejected", reason: "A conflicting project proposal was approved." };
       await p.save();
 
-      if (req.io) {
-        await emitToHods(req.io);
-        const affected = [p.author, p.coStudent].filter(Boolean);
-        await emitToUsers(req.io, affected);
-      }
+      await emitToHods(req);
+      const affected = [p.author, p.coStudent].filter(Boolean);
+      emitToUserIds(req, affected);
     }
 
-    // 7) Emit success notifications
-    if (req.io) {
-      await emitToHods(req.io);
-      await emitToUsers(req.io, studentIds);
-    }
+    await emitToHods(req);
+    emitToUserIds(req, studentIds);
 
-    // 8) Done
     return res.json({
       msg: "Proposal approved and project created successfully",
       project: savedProject,

@@ -11,7 +11,7 @@ const Project = require('./models/Project');
 const { SERVER_URL, PORT } = process.env;
 const API_URL = `${SERVER_URL}:${PORT}/api`;
 
-const NUM_MENTORS = 10;
+const NUM_MENTORS = 2;
 const NUM_STUDENTS = 50;
 
 const seed = process.argv || 'default_seed';
@@ -40,7 +40,7 @@ const seedData = async () => {
     console.log('Existing data cleared');
     console.log('Seeding data...');
 
-    const hashedPassword = await bcrypt.hash('password123', 10);
+    const hashedPassword = await bcrypt.hash('123', 10);
     const hod = await User.create({
       fullName: 'Dr. Head of Department',
       email: 'firassharary3@gmail.com',

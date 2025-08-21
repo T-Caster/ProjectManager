@@ -32,10 +32,7 @@ const MeetingCard = ({
   const [isRescheduleOpen, setRescheduleOpen] = useState(false);
 
   const isPending = status === 'pending';
-  const isAccepted = status === 'accepted';
   const isDateInPast = dayjs(proposedDate).isBefore(dayjs());
-
-  const canReschedule = (isPending || isAccepted) && !isDateInPast;
 
   // Determine if the current user is the one who needs to approve the meeting
   const needsMyApproval = useMemo(() => {
@@ -57,28 +54,47 @@ const MeetingCard = ({
   }, [isPending, proposer?._id, currentUserId, mentor?._id, role]);
 
   const statusConfig = useMemo(() => {
-    if (isAccepted && isDateInPast) {
-      return { color: 'grey', label: 'Passed' };
-    }
-    const base = {
+    const map = {
       pending: { color: 'warning', label: 'Pending Approval' },
       accepted: { color: 'success', label: 'Scheduled' },
       rejected: { color: 'error', label: 'Rejected' },
+      held: { color: 'default', label: 'Held' },
+      expired: { color: 'warning', label: 'Expired – not approved' },
     };
-    if (needsMyApproval) {
-      base.pending.label = 'Awaiting your approval';
-    } else if (isPending) {
-      // Differentiate between who is waiting
-      const waitingFor = role === 'student' ? 'mentor' : 'student(s)';
-      base.pending.label = `Pending ${waitingFor}'s approval`;
+
+    // Personalize pending label if it's *your* turn
+    if (status === 'pending') {
+      if (needsMyApproval) map.pending.label = 'Awaiting your approval';
+      else {
+        const waitingFor = role === 'student' ? 'mentor' : 'student(s)';
+        map.pending.label = `Pending ${waitingFor}'s approval`;
+      }
     }
-    return base[status] || { color: 'default', label: status || '—' };
-  }, [status, needsMyApproval, isPending, role, isAccepted, isDateInPast]);
+    return map[status] || { color: 'default', label: status || '—' };
+  }, [status, needsMyApproval, role]);
+
 
   const dateStr = useMemo(
     () => (proposedDate ? dayjs(proposedDate).format('DD/MM/YYYY HH:mm') : '—'),
     [proposedDate]
   );
+
+  const caption = useMemo(() => {
+    if (status === 'held' && proposedDate) {
+      return `Took place on ${dayjs(proposedDate).format('DD/MM/YYYY HH:mm')}`;
+    }
+    if (status === 'expired') {
+      return 'Request expired. Propose a new time.';
+    }
+    return '';
+  }, [status, proposedDate]);
+
+  const showApproveDecline = status === 'pending' && needsMyApproval;
+
+  const showReschedule =
+    (status === 'pending' || status === 'accepted') ? !isDateInPast
+      : status === 'expired' ? true
+        : false;
 
   const handleAction = async (fn) => {
     if (!fn) return;
@@ -141,17 +157,26 @@ const MeetingCard = ({
             </Stack>
           }
           subheader={
-            <Typography variant="body2" color="text.secondary">
-              Proposed by:{' '}
-              {proposer?._id ? (
-                <MuiLink component={Link} to={PROFILE_ROUTE(proposer._id)} underline="hover">
-                  {proposer.fullName}
-                </MuiLink>
-              ) : (
-                proposer?.fullName || '—'
+            <Stack spacing={0.25}>
+              <Typography variant="body2" color="text.secondary">
+                Proposed by{' '}
+                {proposer?._id ? (
+                  <MuiLink component={Link} to={PROFILE_ROUTE(proposer._id)} underline="hover">
+                    {proposer.fullName}
+                  </MuiLink>
+                ) : (
+                  proposer?.fullName || '—'
+                )}
+              </Typography>
+
+              {!!caption && (
+                <Typography variant="caption" color="text.secondary">
+                  {caption}
+                </Typography>
               )}
-            </Typography>
+            </Stack>
           }
+
           sx={{ pb: compact ? 1 : 1.25 }}
         />
 
@@ -174,7 +199,7 @@ const MeetingCard = ({
             </Stack>
           </Stack>
           <Stack direction="row" spacing={1.5} alignItems="center">
-             <Typography variant="body2" color="text.secondary" sx={{ minWidth: 90 }}>
+            <Typography variant="body2" color="text.secondary" sx={{ minWidth: 90 }}>
               Attendees:
             </Typography>
             <AvatarGroup max={4} sx={{ '& .MuiAvatar-root': { width: 28, height: 28 } }}>
@@ -210,7 +235,7 @@ const MeetingCard = ({
         </CardContent>
 
         <CardActions sx={{ px: 2, py: 1.25, justifyContent: 'flex-end', gap: 1 }}>
-          {canReschedule && (
+          {showReschedule && (
             <Button
               variant="text"
               size="small"
@@ -223,7 +248,7 @@ const MeetingCard = ({
           )}
 
           {/* Mentor actions */}
-          {needsMyApproval && role === 'mentor' && (
+          {showApproveDecline && role === 'mentor' && (
             <>
               <Button variant="outlined" color="error" disabled={loading} onClick={() => handleAction(onDecline)}>
                 Decline
@@ -235,7 +260,7 @@ const MeetingCard = ({
           )}
 
           {/* Student actions */}
-          {needsMyApproval && role === 'student' && (
+          {showApproveDecline && role === 'student' && (
             <>
               <Button variant="outlined" color="error" disabled={loading} onClick={() => handleAction(onStudentDecline)}>
                 Decline
