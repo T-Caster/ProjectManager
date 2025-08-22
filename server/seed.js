@@ -148,6 +148,8 @@ const seedData = async () => {
         marketReview: 'This is a dummy market review.',
         newOrImproved: 'This is what is new or improved.',
         suggestedMentor: suggestedMentor._id,
+        address: `Dummy Address ${group.map(s => s.fullName).join(', ')}`,
+        endOfStudies: new Date(new Date().setFullYear(new Date().getFullYear() + 1)),
       };
       if (coStudent) {
         proposalData.coStudent = coStudent._id;

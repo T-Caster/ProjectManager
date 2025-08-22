@@ -83,7 +83,7 @@ export default function ProfilePage() {
           phoneNumber: formatPhone(userData.phoneNumber || ""),
         });
         setProfilePicPreview(userData.profilePic);
-        if (!id) setIsCurrentUser(true);
+        if (!id || (id === authUser._id)) setIsCurrentUser(true);
       } catch (err) {
         console.error("Failed to fetch user", err);
       } finally {

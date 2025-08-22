@@ -21,12 +21,6 @@ const pdfUpload = multer({
   limits: { fileSize: 10 * 1024 * 1024 },
 });
 
-/**
- * --------- Socket helpers (aligned with meetings/tasks style) ---------
- * We emit by userId using req.users[userId] -> socketId mapping.
- * Event name remains "updateProposals" to keep the client wiring intact.
- */
-
 // Emit "updateProposals" to a list of userIds (strings/ObjectIds ok)
 const emitToUserIds = (req, userIds) => {
   if (!req?.io || !req?.users || !Array.isArray(userIds) || userIds.length === 0) return;
@@ -52,7 +46,7 @@ const emitToProposalStudents = async (req, proposal) => {
 };
 
 /**
- * Helper: student eligibility (unchanged)
+ * Helper: student eligibility
  */
 const checkStudentEligibility = async (studentId) => {
   const student = await User.findById(studentId);
@@ -69,7 +63,6 @@ const checkStudentEligibility = async (studentId) => {
   return { eligible: true, student };
 };
 
-// ---------- Routes (logic unchanged) ----------
 
 // Upload a proposal PDF
 router.post("/upload", authMiddleware, pdfUpload.single("proposalPdf"), async (req, res) => {
