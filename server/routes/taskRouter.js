@@ -62,11 +62,11 @@ router.post(
         return res.status(403).json({ message: 'Not authorized to create tasks for this meeting' });
       }
 
-      // Must be accepted and already held (past)
-      const isAccepted = meeting.status === 'accepted';
-      const isPast = new Date(meeting.proposedDate).getTime() < Date.now();
-      if (!isAccepted || !isPast) {
-        return res.status(400).json({ message: 'Tasks can be created only after a held meeting' });
+      // A task can be created if the meeting has been 'held', or if it was 'accepted' and is in the past.
+      const isHeld = meeting.status === 'held';
+      const isAcceptedAndPast = meeting.status === 'accepted' && new Date(meeting.proposedDate).getTime() < Date.now();
+      if (!isHeld && !isAcceptedAndPast) {
+        return res.status(400).json({ message: 'Tasks can only be created for meetings that have been held.' });
       }
 
       const task = new Task({

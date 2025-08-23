@@ -1,8 +1,8 @@
 // client/src/components/TaskCard.jsx
-import React, { useMemo, useState } from 'react';
+import React, { useMemo, useState, useRef } from 'react';
 import {
   Card, CardHeader, CardContent, CardActions,
-  Stack, Typography, Chip, IconButton, Tooltip, Button, TextField
+  Stack, Typography, Chip, IconButton, Tooltip, TextField
 } from '@mui/material';
 import CheckCircleIcon from '@mui/icons-material/CheckCircle';
 import ReplayIcon from '@mui/icons-material/Replay';
@@ -21,9 +21,9 @@ const TaskCard = ({
   onDelete,
 }) => {
   const [editing, setEditing] = useState(false);
-  const [localTitle, setLocalTitle] = useState(task.title);
-  const [localDesc, setLocalDesc] = useState(task.description || '');
-  const [localDue, setLocalDue] = useState(task.dueDate ? dayjs(task.dueDate).format('YYYY-MM-DDTHH:mm') : '');
+  const titleRef = useRef(null);
+  const descRef = useRef(null);
+  const dueRef = useRef(null);
 
   const canEdit = role === 'mentor' && task.status === 'open';
   const canDelete = role === 'mentor' && task.status === 'open';
@@ -60,6 +60,9 @@ const TaskCard = ({
   );
 
   const handleSave = async () => {
+    const localTitle = titleRef.current?.value || '';
+    const localDesc = descRef.current?.value || '';
+    const localDue = dueRef.current?.value || '';
     await onUpdate(task._id, {
       title: localTitle,
       description: localDesc,
@@ -90,16 +93,16 @@ const TaskCard = ({
             <TextField
               size="small"
               label="Title"
-              value={localTitle}
-              onChange={(e) => setLocalTitle(e.target.value)}
+              defaultValue={task.title}
+              inputRef={titleRef}
               inputProps={{ maxLength: 200 }}
               fullWidth
             />
             <TextField
               size="small"
               label="Description"
-              value={localDesc}
-              onChange={(e) => setLocalDesc(e.target.value)}
+              defaultValue={task.description || ''}
+              inputRef={descRef}
               inputProps={{ maxLength: 4000 }}
               multiline
               minRows={2}
@@ -109,8 +112,8 @@ const TaskCard = ({
               size="small"
               type="datetime-local"
               label="Due date"
-              value={localDue}
-              onChange={(e) => setLocalDue(e.target.value)}
+              defaultValue={task.dueDate ? dayjs(task.dueDate).format('YYYY-MM-DDTHH:mm') : ''}
+              inputRef={dueRef}
               InputLabelProps={{ shrink: true }}
             />
           </Stack>
