@@ -35,6 +35,7 @@ const mentorMenuItems = [
     { text: 'Profile', icon: <PersonIcon />, path: '/profile' },
     { text: 'My Students', icon: <GroupIcon />, path: '/my-students' },
     { text: 'Meetings', icon: <EventIcon />, path: '/meetings' },
+    { text: 'Tasks', icon: <AssignmentIcon />, path: '/tasks' },
 ];
 
 const hodMenuItems = [

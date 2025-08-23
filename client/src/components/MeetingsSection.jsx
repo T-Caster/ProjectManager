@@ -1,4 +1,4 @@
-import React, { useMemo } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import {
   Paper,
   Stack,
@@ -15,8 +15,8 @@ import {
 import RefreshIcon from '@mui/icons-material/Refresh';
 import FilterListIcon from '@mui/icons-material/FilterList';
 import EventAvailableIcon from '@mui/icons-material/EventAvailable';
-import MeetingsIcon from '@mui/icons-material/VideoChat';
 import MeetingCard from './MeetingCard';
+import { useTasks } from '../contexts/TaskContext';
 
 const MeetingsSection = ({
   title,
@@ -41,20 +41,11 @@ const MeetingsSection = ({
   const counts = useMemo(() => {
     const base = { all: meetings.length, pending: 0, accepted: 0, rejected: 0, held: 0, expired: 0 };
     meetings.forEach((m) => {
-      switch (m.status) {
-        case 'pending':
-          base.pending += 1; break;
-        case 'accepted':
-          base.accepted += 1; break;
-        case 'rejected':
-          base.rejected += 1; break;
-        case 'held':
-          base.held += 1; break;
-        case 'expired':
-          base.expired += 1; break;
-        default:
-          break;
-      }
+      if (m.status === 'pending') base.pending += 1;
+      else if (m.status === 'accepted') base.accepted += 1;
+      else if (m.status === 'rejected') base.rejected += 1;
+      else if (m.status === 'held') base.held += 1;
+      else if (m.status === 'expired') base.expired += 1;
     });
     return base;
   }, [meetings]);
@@ -64,16 +55,33 @@ const MeetingsSection = ({
     return meetings.filter((m) => m.status === filter);
   }, [meetings, filter]);
 
-  const prettyFilter = (f) => {
-    switch (f) {
-      case 'pending': return 'Pending';
-      case 'accepted': return 'Scheduled';
-      case 'rejected': return 'Rejected';
-      case 'held': return 'Held';
-      case 'expired': return 'Expired';
-      default: return 'All';
-    }
-  };
+  // NEW: per-meeting tasks count (uses context helper)
+  const { countTasksForMeeting } = useTasks();
+  const [taskCounts, setTaskCounts] = useState({}); // { [meetingId]: number }
+
+  useEffect(() => {
+    let cancelled = false;
+    const loadCounts = async () => {
+      const ids = filteredMeetings.map((m) => m._id);
+      const promises = ids.map(async (id) => {
+        try {
+          const n = await countTasksForMeeting(id);
+          return [id, n];
+        } catch {
+          return [id, 0];
+        }
+      });
+      const pairs = await Promise.all(promises);
+      if (!cancelled) {
+        const next = {};
+        pairs.forEach(([id, n]) => { next[id] = n; });
+        setTaskCounts(next);
+      }
+    };
+    if (filteredMeetings.length) loadCounts();
+    else setTaskCounts({});
+    return () => { cancelled = true; };
+  }, [filteredMeetings, countTasksForMeeting]);
 
   return (
     <Paper
@@ -87,60 +95,53 @@ const MeetingsSection = ({
         background: theme.palette.background.paper,
       })}
     >
-      {/* Section header: title + counts + filters + refresh */}
-      <Stack spacing={1.25}>
-        <Stack
-          direction={{ xs: 'column', md: 'row' }}
-          spacing={1}
-          alignItems={{ xs: 'flex-start', md: 'center' }}
-          justifyContent="space-between"
-          flexWrap="wrap"
-        >
-          <Stack direction="row" spacing={1} alignItems="center" flexWrap="wrap">
-            <Typography variant="h5">{title}</Typography>
-            <Chip size="small" label={`All: ${counts.all}`} />
-          </Stack>
-
-          <Stack direction="row" spacing={1} alignItems="center">
-            <ToggleButtonGroup
-              value={filter}
-              exclusive
-              onChange={(_, v) => v && onFilterChange(v)}
-              size="small"
-              color="primary"
-            >
-              <ToggleButton value="all">
-                <FilterListIcon fontSize="small" sx={{ mr: 0.5 }} />
-                All
-              </ToggleButton>
-              <ToggleButton value="pending">Pending</ToggleButton>
-              <ToggleButton value="accepted">Scheduled</ToggleButton>
-              <ToggleButton value="rejected">Rejected</ToggleButton>
-              <ToggleButton value="held">Held</ToggleButton>
-              <ToggleButton value="expired">Expired</ToggleButton>
-            </ToggleButtonGroup>
-
-            {onRefresh && (
-              <IconButton
-                onClick={onRefresh}
-                title="Refresh"
-                aria-label="Refresh meetings"
-                size="small"
-                disabled={refreshing}
-              >
-                {refreshing ? <CircularProgress size={18} /> : <RefreshIcon />}
-              </IconButton>
-            )}
-          </Stack>
-        </Stack>
-
-        {/* Compact legend row so all labels are visible at a glance */}
+      {/* Section header: title + filters + refresh + counts */}
+      <Stack
+        direction={{ xs: 'column', sm: 'row' }}
+        spacing={1.5}
+        alignItems={{ xs: 'flex-start', sm: 'center' }}
+        justifyContent="space-between"
+      >
         <Stack direction="row" spacing={1} alignItems="center" flexWrap="wrap">
+          <Typography variant="h5">{title}</Typography>
+          <Chip size="small" label={`All: ${counts.all}`} />
           <Chip size="small" color="warning" label={`Pending: ${counts.pending}`} />
           <Chip size="small" color="success" label={`Scheduled: ${counts.accepted}`} />
           <Chip size="small" color="error" label={`Rejected: ${counts.rejected}`} />
-          <Chip size="small" variant="outlined" label={`Held: ${counts.held}`} />
+          <Chip size="small" color="default" variant="outlined" label={`Held: ${counts.held}`} />
           <Chip size="small" color="warning" variant="outlined" label={`Expired: ${counts.expired}`} />
+        </Stack>
+
+        <Stack direction="row" spacing={1} alignItems="center">
+          <ToggleButtonGroup
+            value={filter}
+            exclusive
+            onChange={(_, v) => v && onFilterChange(v)}
+            size="small"
+            color="primary"
+          >
+            <ToggleButton value="all">
+              <FilterListIcon fontSize="small" sx={{ mr: 0.5 }} />
+              All
+            </ToggleButton>
+            <ToggleButton value="pending">Pending</ToggleButton>
+            <ToggleButton value="accepted">Scheduled</ToggleButton>
+            <ToggleButton value="held">Held</ToggleButton>
+            <ToggleButton value="expired">Expired</ToggleButton>
+            <ToggleButton value="rejected">Rejected</ToggleButton>
+          </ToggleButtonGroup>
+
+          {onRefresh && (
+            <IconButton
+              onClick={onRefresh}
+              title="Refresh"
+              aria-label="Refresh meetings"
+              size="small"
+              disabled={refreshing}
+            >
+              {refreshing ? <CircularProgress size={18} /> : <RefreshIcon />}
+            </IconButton>
+          )}
         </Stack>
       </Stack>
 
@@ -165,13 +166,9 @@ const MeetingsSection = ({
           })}
         >
           <Stack spacing={1.5} alignItems="center">
-            {filter === 'held' ? (
-              <MeetingsIcon color="action" sx={{ fontSize: 36 }} />
-            ) : (
-              <EventAvailableIcon color="primary" sx={{ fontSize: 36 }} />
-            )}
+            <EventAvailableIcon color="primary" sx={{ fontSize: 36 }} />
             <Typography variant="h6" color="text.secondary">
-              {emptyStateTitle || (filter === 'all' ? 'No meetings yet.' : `No ${prettyFilter(filter)} meetings.`)}
+              {emptyStateTitle || (filter === 'all' ? 'No meetings yet.' : `No ${filter} meetings.`)}
             </Typography>
             {emptyStateMessage && (
               <Typography variant="body2" color="text.secondary">
@@ -188,7 +185,7 @@ const MeetingsSection = ({
       ) : (
         <Grid container spacing={2}>
           {filteredMeetings.map((meeting) => (
-            <Grid item xs={12} sm={6} md={4} key={meeting._id}>
+            <Grid item size= {{xs: 12, sm: 6, md: 4 }} key={meeting._id}>
               <MeetingCard
                 meeting={meeting}
                 role={role}
@@ -198,6 +195,7 @@ const MeetingsSection = ({
                 onStudentApprove={onStudentApprove ? () => onStudentApprove(meeting._id) : undefined}
                 onStudentDecline={onStudentDecline ? () => onStudentDecline(meeting._id) : undefined}
                 onReschedule={onReschedule ? (payload) => onReschedule(meeting._id, payload) : undefined}
+                tasksCount={taskCounts[meeting._id]} // NEW
               />
             </Grid>
           ))}

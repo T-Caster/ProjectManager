@@ -2,13 +2,14 @@ import React, { useMemo, useState } from 'react';
 import {
   Card, CardHeader, CardContent, CardActions,
   Chip, Stack, Typography, Divider, Box, Avatar, AvatarGroup,
-  Button, Link as MuiLink, IconButton,
+  Button, Link as MuiLink,
 } from '@mui/material';
 import EventIcon from '@mui/icons-material/Event';
 import MoreTimeIcon from '@mui/icons-material/MoreTime';
 import InfoOutlinedIcon from '@mui/icons-material/InfoOutlined';
+import AssignmentTurnedInIcon from '@mui/icons-material/AssignmentTurnedIn';
 import dayjs from 'dayjs';
-import { Link } from 'react-router-dom';
+import { Link, Link as RouterLink } from 'react-router-dom';
 import RescheduleDialog from './RescheduleDialog';
 
 const PROFILE_ROUTE = (id) => `/profile/${id}`;
@@ -25,6 +26,8 @@ const MeetingCard = ({
   onStudentDecline,
   // Shared actions
   onReschedule,
+  // NEW: optional precomputed tasks count (fallback to showing chip without number)
+  tasksCount,
   compact = false,
 }) => {
   const { _id, status, proposedDate, proposer, mentor, attendees = [], project } = meeting || {};
@@ -34,22 +37,14 @@ const MeetingCard = ({
   const isPending = status === 'pending';
   const isDateInPast = dayjs(proposedDate).isBefore(dayjs());
 
-  // Determine if the current user is the one who needs to approve the meeting
   const needsMyApproval = useMemo(() => {
     if (!isPending || !proposer?._id || !currentUserId || !mentor?._id) {
       return false;
     }
     const isMyRoleMentor = role === 'mentor';
     const isProposerTheMentor = proposer._id === mentor._id;
-
-    // Mentor needs to approve if a student proposed.
-    if (isMyRoleMentor && !isProposerTheMentor) {
-      return true;
-    }
-    // Student needs to approve if the mentor proposed.
-    if (!isMyRoleMentor && isProposerTheMentor) {
-      return true;
-    }
+    if (isMyRoleMentor && !isProposerTheMentor) return true;
+    if (!isMyRoleMentor && isProposerTheMentor) return true;
     return false;
   }, [isPending, proposer?._id, currentUserId, mentor?._id, role]);
 
@@ -61,8 +56,6 @@ const MeetingCard = ({
       held: { color: 'default', label: 'Held' },
       expired: { color: 'warning', label: 'Expired – not approved' },
     };
-
-    // Personalize pending label if it's *your* turn
     if (status === 'pending') {
       if (needsMyApproval) map.pending.label = 'Awaiting your approval';
       else {
@@ -73,19 +66,14 @@ const MeetingCard = ({
     return map[status] || { color: 'default', label: status || '—' };
   }, [status, needsMyApproval, role]);
 
-
   const dateStr = useMemo(
     () => (proposedDate ? dayjs(proposedDate).format('DD/MM/YYYY HH:mm') : '—'),
     [proposedDate]
   );
 
   const caption = useMemo(() => {
-    if (status === 'held' && proposedDate) {
-      return `Took place on ${dayjs(proposedDate).format('DD/MM/YYYY HH:mm')}`;
-    }
-    if (status === 'expired') {
-      return 'Request expired. Propose a new time.';
-    }
+    if (status === 'held' && proposedDate) return `Took place on ${dayjs(proposedDate).format('DD/MM/YYYY HH:mm')}`;
+    if (status === 'expired') return 'Request expired. Propose a new time.';
     return '';
   }, [status, proposedDate]);
 
@@ -96,13 +84,13 @@ const MeetingCard = ({
       : status === 'expired' ? true
         : false;
 
+  const showTasksButton = status === 'held'; // only allow navigation to tasks when the meeting is accepted and its time has passed
+
   const handleAction = async (fn) => {
     if (!fn) return;
     try {
       setLoading(true);
       await fn();
-      // No need to set loading to false if component unmounts or state changes,
-      // but it's good practice for graceful error handling.
     } finally {
       setLoading(false);
     }
@@ -148,11 +136,17 @@ const MeetingCard = ({
               <Typography variant="h6" sx={{ lineHeight: 1.2 }}>
                 {project?.name ? `Meeting: ${project.name}` : 'Meeting'}
               </Typography>
+              <Chip size="small" label={statusConfig.label} color={statusConfig.color} variant="outlined" />
+              {/* NEW: Tasks chip */}
               <Chip
                 size="small"
-                label={statusConfig.label}
-                color={statusConfig.color}
+                icon={<AssignmentTurnedInIcon />}
+                component={RouterLink}
+                clickable
+                to={`/tasks?meetingId=${_id}`}
+                label={Number.isInteger(tasksCount) ? `Tasks: ${tasksCount}` : 'Tasks'}
                 variant="outlined"
+                sx={{ ml: 0.5 }}
               />
             </Stack>
           }
@@ -168,7 +162,6 @@ const MeetingCard = ({
                   proposer?.fullName || '—'
                 )}
               </Typography>
-
               {!!caption && (
                 <Typography variant="caption" color="text.secondary">
                   {caption}
@@ -176,7 +169,6 @@ const MeetingCard = ({
               )}
             </Stack>
           }
-
           sx={{ pb: compact ? 1 : 1.25 }}
         />
 
@@ -235,6 +227,17 @@ const MeetingCard = ({
         </CardContent>
 
         <CardActions sx={{ px: 2, py: 1.25, justifyContent: 'flex-end', gap: 1 }}>
+          {showTasksButton && (
+            <Button
+              component={RouterLink}
+              to={`/tasks?meetingId=${_id}`}
+              size="small"
+              variant="outlined"
+            >
+              {role === 'mentor' ? 'Manage tasks' : 'View tasks'}
+            </Button>
+          )}
+
           {showReschedule && (
             <Button
               variant="text"
@@ -247,7 +250,6 @@ const MeetingCard = ({
             </Button>
           )}
 
-          {/* Mentor actions */}
           {showApproveDecline && role === 'mentor' && (
             <>
               <Button variant="outlined" color="error" disabled={loading} onClick={() => handleAction(onDecline)}>
@@ -259,7 +261,6 @@ const MeetingCard = ({
             </>
           )}
 
-          {/* Student actions */}
           {showApproveDecline && role === 'student' && (
             <>
               <Button variant="outlined" color="error" disabled={loading} onClick={() => handleAction(onStudentDecline)}>

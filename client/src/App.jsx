@@ -21,6 +21,7 @@ import ProposalReviewPage from "./pages/ProposalReviewPage";
 import { LocalizationProvider } from '@mui/x-date-pickers';
 import { AdapterDayjs } from '@mui/x-date-pickers/AdapterDayjs'
 import { MeetingProvider } from "./contexts/MeetingContext";
+import { TaskProvider } from "./contexts/TaskContext";
 
 export default function App() {
   return (
@@ -33,7 +34,7 @@ export default function App() {
         <Route path="/reset-password" element={<AuthRoute><ResetPasswordPage /></AuthRoute>} />
         <Route path="/reset-password/:token" element={<AuthRoute><ResetPasswordPage /></AuthRoute>} />
 
-        <Route element={<AuthGuard><ProposalProvider><MeetingProvider><DashboardLayout /></MeetingProvider></ProposalProvider></AuthGuard>}>
+        <Route element={<AuthGuard><ProposalProvider><MeetingProvider><TaskProvider><DashboardLayout /></TaskProvider></MeetingProvider></ProposalProvider></AuthGuard>}>
           <Route path="/dashboard" element={<DashboardPage />} />
           <Route path="/profile" element={<ProfilePage />} />
           <Route path="/profile/:id" element={<ProfilePage />} />
@@ -43,6 +44,10 @@ export default function App() {
           <Route path="/propose-project" element={<ProposeProjectPage />} />
           <Route path="/propose-project/:proposalId" element={<ProposeProjectPage />} />
           <Route path="/schedule-meeting" element={<ScheduleMeetingPage />} />
+        </Route>
+
+        {/* Student & Mentor Routes */}
+        <Route element={<RoleBasedGuard roles={['student', 'mentor']} />}>
           <Route path="/tasks" element={<TasksPage />} />
         </Route>
 
