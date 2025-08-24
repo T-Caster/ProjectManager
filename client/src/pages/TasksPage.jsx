@@ -12,6 +12,7 @@ import { useLocation, useNavigate } from 'react-router-dom';
 import { AuthUserContext } from '../contexts/AuthUserContext';
 import { useTasks } from '../contexts/TaskContext';
 import TaskCard from '../components/TaskCard';
+import axios from '../utils/axios';
 
 // MUI X date pickers
 import { LocalizationProvider } from '@mui/x-date-pickers/LocalizationProvider';
@@ -235,14 +236,47 @@ const TasksPage = () => {
   // Create modal state
   const [createOpen, setCreateOpen] = useState(false);
 
-  useEffect(() => {
-    if (meetingId) {
-      fetchByMeeting(meetingId);
-      return;
-    }
-    if (projectId) fetchByProject(projectId);
-  }, [meetingId, projectId, fetchByMeeting, fetchByProject]);
+  // Local "mine" state for when no scope is selected
+  const [allTasks, setAllTasks] = useState([]);
+  const [allLoading, setAllLoading] = useState(false);
 
+  // Should we show "all my tasks" instead of project/meeting scoped ones?
+  // For students, this is true whenever no meeting is selected (they don't choose project in UI).
+  const noScopeSelected = !meetingId && (!isMentor || !projectId);
+
+  // Load tasks based on scope: when no scope (student or mentor with cleared filters) -> /tasks/mine
+  useEffect(() => {
+    let stopped = false;
+
+    const load = async () => {
+      if (noScopeSelected) {
+        setAllLoading(true);
+        try {
+          const { data } = await axios.get('/tasks/mine');
+          if (!stopped) setAllTasks(Array.isArray(data) ? data : []);
+        } finally {
+          if (!stopped) setAllLoading(false);
+        }
+        return;
+      }
+
+      if (meetingId) {
+        await fetchByMeeting(meetingId);
+        if (!stopped) setAllTasks([]);
+        return;
+      }
+
+      if (projectId) {
+        await fetchByProject(projectId);
+        if (!stopped) setAllTasks([]);
+      }
+    };
+
+    load();
+    return () => { stopped = true; };
+  }, [noScopeSelected, meetingId, projectId, fetchByMeeting, fetchByProject]);
+
+  // Keep URL in sync with selected filters
   useEffect(() => {
     const params = new URLSearchParams();
     if (meetingId) params.set('meetingId', meetingId);
@@ -276,8 +310,12 @@ const TasksPage = () => {
     });
   }, [allMeetingOptions]);
 
+  // Choose base list depending on scope
+  const baseTasks = noScopeSelected ? allTasks : safeTasks;
+
+  // Apply status/date filters to base list
   const filteredTasks = useMemo(() => {
-    let list = safeTasks.slice();
+    let list = (Array.isArray(baseTasks) ? baseTasks : []).slice();
 
     if (statusFilter === 'open') list = list.filter((t) => t.status === 'open');
     if (statusFilter === 'completed') list = list.filter((t) => t.status === 'completed');
@@ -292,21 +330,40 @@ const TasksPage = () => {
       list = list.filter((t) => !t.dueDate || dayjs(t.dueDate).valueOf() <= end);
     }
     return list;
-  }, [safeTasks, statusFilter, from, to]);
+  }, [baseTasks, statusFilter, from, to]);
 
+  // Counts from the same base list
   const counts = useMemo(() => {
-    const base = { all: safeTasks.length, open: 0, completed: 0, overdue: 0 };
-    safeTasks.forEach((t) => {
+    const src = Array.isArray(baseTasks) ? baseTasks : [];
+    const base = { all: src.length, open: 0, completed: 0, overdue: 0 };
+    src.forEach((t) => {
       if (t.status === 'open') base.open += 1;
       if (t.status === 'completed') base.completed += 1;
       if (t.isOverdue) base.overdue += 1;
     });
     return base;
-  }, [safeTasks]);
+  }, [baseTasks]);
 
   const handleRefresh = async () => {
-    if (meetingId) await fetchByMeeting(meetingId);
-    else if (projectId) await fetchByProject(projectId);
+    if (noScopeSelected) {
+      setAllLoading(true);
+      try {
+        const { data } = await axios.get('/tasks/mine');
+        setAllTasks(Array.isArray(data) ? data : []);
+      } finally {
+        setAllLoading(false);
+      }
+      return;
+    }
+
+    if (meetingId) {
+      await fetchByMeeting(meetingId);
+      return;
+    }
+
+    if (projectId) {
+      await fetchByProject(projectId);
+    }
   };
 
   const openCreate = () => setCreateOpen(true);
@@ -387,10 +444,10 @@ const TasksPage = () => {
               onClick={handleRefresh}
               startIcon={<RefreshIcon />}
               size="small"
-              disabled={loading}
+              disabled={loading || allLoading}
               variant="outlined"
             >
-              {loading ? 'Refreshing…' : 'Refresh'}
+              {loading || allLoading ? 'Refreshing…' : 'Refresh'}
             </Button>
 
             {isMentor && (
@@ -520,7 +577,7 @@ const TasksPage = () => {
         <Divider sx={{ my: 2 }} />
 
         {/* Content */}
-        {loading ? (
+        {(loading && !noScopeSelected) || (allLoading && noScopeSelected) ? (
           <Stack alignItems="center" py={6} spacing={2}>
             <CircularProgress />
             <Typography variant="body2" color="text.secondary">Loading tasks…</Typography>

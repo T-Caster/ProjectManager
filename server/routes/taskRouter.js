@@ -38,18 +38,25 @@ const emitToProject = (req, project, event, payload) => {
 
 const isValidDate = (d) => d instanceof Date && !isNaN(d.getTime());
 
+// GET all tasks for projects the current user belongs to (mentor OR student)
 router.get(
   '/mine',
   authMiddleware,
   async (req, res) => {
     try {
-      const uid = req.user.id;
+      const uid = String(req.user.id);
 
-      // Projects where the user is mentor OR a student
-      const projects = await Project.find({
-        $or: [{ mentor: uid }, { students: uid }],
-      }).select('_id');
+      // Cast to ObjectId when possible — student/mentor refs are ObjectIds in Project
+      const { Types } = require('mongoose');
+      const uidObj = Types.ObjectId.isValid(uid) ? new Types.ObjectId(uid) : null;
 
+      // Be explicit about array membership for students
+      const or = uidObj
+        ? [{ mentor: uidObj }, { students: { $in: [uidObj] } }]
+        // Fallback if your auth layer ever provides a non-ObjectId id (defensive)
+        : [{ mentor: uid }, { students: { $in: [uid] } }];
+
+      const projects = await Project.find({ $or: or }).select('_id').lean();
       if (!projects.length) return res.json([]);
 
       const projectIds = projects.map(p => p._id);
