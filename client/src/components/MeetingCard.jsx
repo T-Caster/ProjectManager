@@ -26,7 +26,7 @@ const MeetingCard = ({
   onStudentDecline,
   // Shared actions
   onReschedule,
-  // NEW: optional precomputed tasks count (fallback to showing chip without number)
+  // optional precomputed tasks count
   tasksCount,
   compact = false,
 }) => {
@@ -84,7 +84,7 @@ const MeetingCard = ({
       : status === 'expired' ? true
         : false;
 
-  const showTasksButton = status === 'held'; // only allow navigation to tasks when the meeting is accepted and its time has passed
+  const showTasksButton = status === 'held';
 
   const handleAction = async (fn) => {
     if (!fn) return;
@@ -114,6 +114,9 @@ const MeetingCard = ({
           display: 'flex',
           flexDirection: 'column',
           height: '100%',
+          width: '100%',
+          // keep it from becoming too narrow on larger screens
+          [theme.breakpoints.up('sm')]: { minWidth: 380 },
         })}
       >
         <Box
@@ -137,7 +140,6 @@ const MeetingCard = ({
                 {project?.name ? `Meeting: ${project.name}` : 'Meeting'}
               </Typography>
               <Chip size="small" label={statusConfig.label} color={statusConfig.color} variant="outlined" />
-              {/* NEW: Tasks chip */}
               <Chip
                 size="small"
                 icon={<AssignmentTurnedInIcon />}
@@ -190,29 +192,29 @@ const MeetingCard = ({
               <Typography variant="body2">{mentor?.fullName || '—'}</Typography>
             </Stack>
           </Stack>
-          <Stack direction="row" spacing={1.5} alignItems="center">
+          <Stack direction="row" spacing={1.5} alignItems="center" sx={{ flexWrap: 'wrap' }}>
             <Typography variant="body2" color="text.secondary" sx={{ minWidth: 90 }}>
               Attendees:
             </Typography>
             <AvatarGroup max={4} sx={{ '& .MuiAvatar-root': { width: 28, height: 28 } }}>
               {attendees.map((a) => (
-                <Avatar key={a._id} src={a.avatarUrl} alt={a.fullName}>
+                <Avatar key={a._id || a.fullName} src={a.avatarUrl} alt={a.fullName}>
                   {a.fullName?.[0]}
                 </Avatar>
               ))}
             </AvatarGroup>
             <Typography variant="body2" noWrap>
               {attendees
-                .map((a) =>
+                .map((a, idx) =>
                   a._id ? (
                     <MuiLink key={a._id} component={Link} to={PROFILE_ROUTE(a._id)} underline="hover">
                       {a.fullName}
                     </MuiLink>
                   ) : (
-                    a.fullName
+                    <span key={`${a.fullName}-${idx}`}>{a.fullName}</span>
                   )
                 )
-                .reduce((prev, curr) => [prev, ', ', curr])}
+                .reduce((prev, curr) => (prev === null ? [curr] : [...prev, ', ', curr]), null)}
             </Typography>
           </Stack>
 

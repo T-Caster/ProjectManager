@@ -1,5 +1,9 @@
-// client/src/services/taskService.js
-import axios from 'axios';
+import axios from '../utils/axios';
+
+const listMine = async () => {
+  const { data } = await axios.get('/tasks/mine');
+  return data;
+};
 
 const listByProject = async (projectId) => {
   const { data } = await axios.get(`/tasks/project/${projectId}`);

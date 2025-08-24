@@ -55,7 +55,7 @@ const MeetingsSection = ({
     return meetings.filter((m) => m.status === filter);
   }, [meetings, filter]);
 
-  // NEW: per-meeting tasks count (uses context helper)
+  // per-meeting tasks count (uses context helper)
   const { countTasksForMeeting } = useTasks();
   const [taskCounts, setTaskCounts] = useState({}); // { [meetingId]: number }
 
@@ -185,7 +185,7 @@ const MeetingsSection = ({
       ) : (
         <Grid container spacing={2}>
           {filteredMeetings.map((meeting) => (
-            <Grid item size= {{xs: 12, sm: 6, md: 4 }} key={meeting._id}>
+            <Grid item xs={12} sm={6} md={4} key={meeting._id}>
               <MeetingCard
                 meeting={meeting}
                 role={role}
@@ -195,7 +195,7 @@ const MeetingsSection = ({
                 onStudentApprove={onStudentApprove ? () => onStudentApprove(meeting._id) : undefined}
                 onStudentDecline={onStudentDecline ? () => onStudentDecline(meeting._id) : undefined}
                 onReschedule={onReschedule ? (payload) => onReschedule(meeting._id, payload) : undefined}
-                tasksCount={taskCounts[meeting._id]} // NEW
+                tasksCount={taskCounts[meeting._id]}
               />
             </Grid>
           ))}

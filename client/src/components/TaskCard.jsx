@@ -1,8 +1,7 @@
-// client/src/components/TaskCard.jsx
 import React, { useMemo, useState, useRef } from 'react';
 import {
   Card, CardHeader, CardContent, CardActions,
-  Stack, Typography, Chip, IconButton, Tooltip, TextField
+  Stack, Typography, Chip, TextField, Tooltip, Button, Alert
 } from '@mui/material';
 import CheckCircleIcon from '@mui/icons-material/CheckCircle';
 import ReplayIcon from '@mui/icons-material/Replay';
@@ -21,16 +20,26 @@ const TaskCard = ({
   onDelete,
 }) => {
   const [editing, setEditing] = useState(false);
+  const [saving, setSaving] = useState(false);
   const titleRef = useRef(null);
   const descRef = useRef(null);
   const dueRef = useRef(null);
 
+  // inline validation errors (no browser alerts)
+  const [errTitle, setErrTitle] = useState('');
+  const [errDesc, setErrDesc] = useState('');
+  const [errDue, setErrDue] = useState('');
+  const [serverError, setServerError] = useState('');
+
   const canEdit = role === 'mentor' && task.status === 'open';
   const canDelete = role === 'mentor' && task.status === 'open';
-  const canComplete = task.status === 'open';
+  const canComplete = task.status === 'open' && !editing; // hide while editing
   const canReopen = role === 'mentor' && task.status === 'completed';
 
-  const dueStr = useMemo(() => (task.dueDate ? dayjs(task.dueDate).format('DD/MM/YYYY HH:mm') : '—'), [task.dueDate]);
+  const dueStr = useMemo(
+    () => (task.dueDate ? dayjs(task.dueDate).format('DD/MM/YYYY HH:mm') : '—'),
+    [task.dueDate]
+  );
   const createdStr = useMemo(() => dayjs(task.createdAt).format('DD/MM/YYYY'), [task.createdAt]);
 
   const statusChip = useMemo(() => {
@@ -51,24 +60,97 @@ const TaskCard = ({
   }, [task.status, task.completedLate, task.isOverdue]);
 
   const meetingChip = (
-    <Chip
-      size="small"
-      icon={<EventIcon />}
-      label={task.meeting?.proposedDate ? dayjs(task.meeting.proposedDate).format('DD/MM HH:mm') : 'Meeting'}
-      sx={{ ml: 1 }}
-    />
+    <Tooltip
+      arrow
+      title={
+        task.meeting?.proposedDate
+          ? `Meeting date: ${dayjs(task.meeting.proposedDate).format('DD/MM/YYYY HH:mm')}`
+          : 'Meeting'
+      }
+    >
+      <Chip
+        size="small"
+        icon={<EventIcon />}
+        // Make it explicit this is the meeting date
+        label={
+          task.meeting?.proposedDate
+            ? `Meeting: ${dayjs(task.meeting.proposedDate).format('DD/MM HH:mm')}`
+            : 'Meeting'
+        }
+        sx={{ ml: 1 }}
+        color="default"
+        variant="outlined"
+      />
+    </Tooltip>
   );
 
+  const resetErrors = () => {
+    setErrTitle('');
+    setErrDesc('');
+    setErrDue('');
+    setServerError('');
+  };
+
+  const validateLocal = () => {
+    resetErrors();
+    const t = titleRef.current?.value?.trim() || '';
+    const d = descRef.current?.value?.trim() || '';
+    const dueRaw = dueRef.current?.value || '';
+    let ok = true;
+
+    if (!t) {
+      setErrTitle('Title is required');
+      ok = false;
+    }
+    if (!d) {
+      setErrDesc('Description is required');
+      ok = false;
+    }
+    if (!dueRaw) {
+      setErrDue('Due date is required');
+      ok = false;
+    } else {
+      const due = dayjs(dueRaw);
+      if (!due.isValid()) {
+        setErrDue('Invalid due date');
+        ok = false;
+      } else if (!due.isAfter(dayjs())) {
+        setErrDue('Due date must be in the future');
+        ok = false;
+      }
+    }
+    return ok;
+  };
+
   const handleSave = async () => {
-    const localTitle = titleRef.current?.value || '';
-    const localDesc = descRef.current?.value || '';
-    const localDue = dueRef.current?.value || '';
-    await onUpdate(task._id, {
-      title: localTitle,
-      description: localDesc,
-      dueDate: localDue ? new Date(localDue) : null,
-    });
-    setEditing(false);
+    if (!validateLocal()) return;
+    setSaving(true);
+    setServerError('');
+
+    const payload = {
+      title: titleRef.current?.value?.trim(),
+      description: descRef.current?.value?.trim(),
+      dueDate: new Date(dueRef.current?.value),
+    };
+
+    try {
+      await onUpdate(task._id, payload);
+      setEditing(false);
+    } catch (e) {
+      const msg = e?.response?.data?.message || 'Failed to update task.';
+      // Map known server messages to field errors where possible
+      if (/Title cannot be empty/i.test(msg) || /Title is required/i.test(msg)) {
+        setErrTitle('Title is required');
+      } else if (/Description cannot be empty/i.test(msg) || /Description is required/i.test(msg)) {
+        setErrDesc('Description is required');
+      } else if (/dueDate/i.test(msg)) {
+        setErrDue(msg); // could be "dueDate is required" / "Invalid dueDate" / "Due date must be in the future"
+      } else {
+        setServerError(msg);
+      }
+    } finally {
+      setSaving(false);
+    }
   };
 
   return (
@@ -97,6 +179,8 @@ const TaskCard = ({
               inputRef={titleRef}
               inputProps={{ maxLength: 200 }}
               fullWidth
+              error={!!errTitle}
+              helperText={errTitle || '\u00A0'}
             />
             <TextField
               size="small"
@@ -107,6 +191,8 @@ const TaskCard = ({
               multiline
               minRows={2}
               fullWidth
+              error={!!errDesc}
+              helperText={errDesc || '\u00A0'}
             />
             <TextField
               size="small"
@@ -115,7 +201,10 @@ const TaskCard = ({
               defaultValue={task.dueDate ? dayjs(task.dueDate).format('YYYY-MM-DDTHH:mm') : ''}
               inputRef={dueRef}
               InputLabelProps={{ shrink: true }}
+              error={!!errDue}
+              helperText={errDue || '\u00A0'}
             />
+            {serverError && <Alert severity="error" onClose={() => setServerError('')}>{serverError}</Alert>}
           </Stack>
         ) : (
           <Stack spacing={0.5}>
@@ -128,33 +217,59 @@ const TaskCard = ({
           </Stack>
         )}
       </CardContent>
-      <CardActions sx={{ justifyContent: 'flex-end', gap: 1 }}>
+      <CardActions sx={{ justifyContent: 'flex-end', gap: 1, flexWrap: 'wrap' }}>
         {canComplete && (
-          <Tooltip title="Mark completed">
-            <span>
-              <IconButton color="success" onClick={() => onComplete(task._id)}><CheckCircleIcon /></IconButton>
-            </span>
-          </Tooltip>
+          <Button
+            color="success"
+            variant="outlined"
+            startIcon={<CheckCircleIcon />}
+            onClick={() => onComplete(task._id)}
+          >
+            Mark completed
+          </Button>
         )}
         {canReopen && (
-          <Tooltip title="Reopen">
-            <IconButton color="warning" onClick={() => onReopen(task._id)}><ReplayIcon /></IconButton>
-          </Tooltip>
+          <Button
+            color="warning"
+            variant="outlined"
+            startIcon={<ReplayIcon />}
+            onClick={() => onReopen(task._id)}
+          >
+            Reopen
+          </Button>
         )}
         {canEdit && !editing && (
-          <Tooltip title="Edit">
-            <IconButton onClick={() => setEditing(true)}><EditIcon /></IconButton>
-          </Tooltip>
+          <Button
+            variant="text"
+            startIcon={<EditIcon />}
+            onClick={() => {
+              resetErrors();
+              setEditing(true);
+            }}
+          >
+            Edit
+          </Button>
         )}
         {canEdit && editing && (
-          <Tooltip title="Save">
-            <IconButton color="primary" onClick={handleSave}><SaveIcon /></IconButton>
-          </Tooltip>
+          <Button
+            color="primary"
+            variant="contained"
+            startIcon={<SaveIcon />}
+            onClick={handleSave}
+            disabled={saving}
+          >
+            {saving ? 'Saving…' : 'Save'}
+          </Button>
         )}
         {canDelete && !editing && (
-          <Tooltip title="Delete">
-            <IconButton color="error" onClick={() => onDelete(task._id)}><DeleteOutlineIcon /></IconButton>
-          </Tooltip>
+          <Button
+            color="error"
+            variant="outlined"
+            startIcon={<DeleteOutlineIcon />}
+            onClick={() => onDelete(task._id)}
+          >
+            Delete
+          </Button>
         )}
       </CardActions>
     </Card>

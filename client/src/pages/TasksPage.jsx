@@ -1,8 +1,8 @@
-import React, { useContext, useEffect, useMemo, useRef, useState } from 'react';
+import React, { useContext, useEffect, useMemo, useRef, useState, useCallback } from 'react';
 import {
   Container, Paper, Stack, Typography, Divider, Chip,
-  ToggleButton, ToggleButtonGroup, TextField, MenuItem, IconButton,
-  CircularProgress, Button, Alert, Dialog, DialogTitle, DialogContent, DialogActions
+  ToggleButton, ToggleButtonGroup, TextField, MenuItem, Button,
+  CircularProgress, Alert, Dialog, DialogTitle, DialogContent, DialogActions
 } from '@mui/material';
 import Grid from '@mui/material/Grid';
 import RefreshIcon from '@mui/icons-material/Refresh';
@@ -13,7 +13,196 @@ import { AuthUserContext } from '../contexts/AuthUserContext';
 import { useTasks } from '../contexts/TaskContext';
 import TaskCard from '../components/TaskCard';
 
+// MUI X date pickers
+import { LocalizationProvider } from '@mui/x-date-pickers/LocalizationProvider';
+import { AdapterDayjs } from '@mui/x-date-pickers/AdapterDayjs';
+import { DatePicker } from '@mui/x-date-pickers/DatePicker';
+import { DateTimePicker } from '@mui/x-date-pickers';
+
 const useQuery = () => new URLSearchParams(useLocation().search);
+
+/**
+ * CreateTaskDialog — isolated, memoized modal so typing doesn't re-render the page.
+ * Title/Description are UNCONTROLLED (refs). Due uses local state (picker requirement)
+ * and does not affect parent.
+ */
+const CreateTaskDialog = React.memo(function CreateTaskDialog({
+  open,
+  onClose,
+  creationMeetingOptions,
+  defaultMeetingId,
+  onCreate,
+}) {
+  const [meetingId, setMeetingId] = useState(defaultMeetingId || '');
+  const [due, setDue] = useState(null); // dayjs|null
+
+  const titleRef = useRef(null);
+  const descRef = useRef(null);
+
+  const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState('');
+  const [tried, setTried] = useState(false);
+
+  // HARD CLICK-LOCK to prevent ultra-fast double-submits before state updates
+  const submitLockRef = useRef(false);
+
+  // When dialog re-opens with a new defaultMeetingId, reset fields
+  useEffect(() => {
+    if (open) {
+      setMeetingId(defaultMeetingId || '');
+      setDue(null);
+      setError('');
+      setTried(false);
+      if (titleRef.current) titleRef.current.value = '';
+      if (descRef.current) descRef.current.value = '';
+      submitLockRef.current = false;
+      setSubmitting(false);
+    }
+  }, [open, defaultMeetingId]);
+
+  const now = dayjs();
+
+  const missingMeeting = !meetingId;
+  const missingTitle = !titleRef.current?.value?.trim();
+  const missingDesc  = !descRef.current?.value?.trim();
+  const missingDue   = !due || !due.isValid?.();
+  const dueInPast    = !missingDue && !due.isAfter(now);
+
+  const submit = async () => {
+    if (submitLockRef.current) return;          // guard #1 (instant)
+    submitLockRef.current = true;
+
+    setTried(true);
+    setError('');
+
+    const title = titleRef.current?.value?.trim() || '';
+    const description = descRef.current?.value?.trim() || '';
+
+    const problems = [];
+    if (missingMeeting) problems.push('meeting');
+    if (!title) problems.push('title');
+    if (!description) problems.push('description');
+    if (missingDue) problems.push('due date');
+    else if (dueInPast) problems.push('a future due date');
+
+    if (problems.length) {
+      setError(`Please provide: ${problems.join(', ')}.`);
+      submitLockRef.current = false;            // release the lock on validation fail
+      return;
+    }
+
+    try {
+      setSubmitting(true);                      // guard #2 (UI)
+      await onCreate({
+        meetingId,
+        title,
+        description,
+        dueDate: due.toDate(),
+      });
+      onClose();
+    } catch (e) {
+      setError(e?.response?.data?.message || 'Failed to create task.');
+    } finally {
+      setSubmitting(false);
+      // keep the lock until dialog resets on close/open
+    }
+  };
+
+  const helperSx = { minHeight: 20 };
+
+  return (
+    <Dialog open={open} onClose={onClose} fullWidth maxWidth="md">
+      <DialogTitle>Create Task</DialogTitle>
+      <DialogContent dividers>
+        <LocalizationProvider dateAdapter={AdapterDayjs}>
+          <Stack spacing={2}>
+            <TextField
+              select
+              label="Meeting (held)"
+              value={meetingId}
+              onChange={(e) => setMeetingId(e.target.value)}
+              required
+              error={tried && !meetingId}
+              helperText={(creationMeetingOptions?.length ?? 0) === 0
+                ? 'No eligible held meetings found. A meeting becomes eligible once it has been held.'
+                : (tried && !meetingId ? 'Meeting is required' : 'Attach this task to a held meeting')}
+              fullWidth
+            >
+              <MenuItem value="">Select meeting…</MenuItem>
+              {(creationMeetingOptions || []).map((m) => (
+                <MenuItem key={m._id} value={m._id}>
+                  {/* Make it obvious this is the meeting date */}
+                  Meeting on {dayjs(m.proposedDate).format('DD/MM/YYYY HH:mm')} — {m.project?.name || 'Project'}
+                </MenuItem>
+              ))}
+            </TextField>
+
+            <Grid container spacing={2}>
+              <Grid item xs={12} md={6}>
+                <TextField
+                  label="Title"
+                  fullWidth
+                  inputRef={titleRef}
+                  required
+                  error={tried && !titleRef.current?.value?.trim()}
+                  helperText={tried && !titleRef.current?.value?.trim() ? 'Title is required' : '\u00A0'}
+                />
+              </Grid>
+              <Grid item xs={12} md={6}>
+                <DateTimePicker
+                  label="Due date"
+                  value={due}
+                  onChange={setDue}
+                  format="DD/MM/YYYY HH:mm"
+                  disablePast
+                  slotProps={{
+                    textField: {
+                      fullWidth: true,
+                      required: true,
+                      error: tried && (missingDue || dueInPast),
+                      helperText:
+                        tried && missingDue ? 'Due date is required'
+                        : tried && dueInPast ? 'Due date must be in the future'
+                        : '\u00A0',
+                    },
+                  }}
+                />
+              </Grid>
+            </Grid>
+
+            <TextField
+              label="Description"
+              fullWidth
+              multiline
+              minRows={3}
+              inputRef={descRef}
+              required
+              error={tried && !descRef.current?.value?.trim()}
+              helperText={tried && !descRef.current?.value?.trim() ? 'Description is required' : '\u00A0'}
+            />
+
+            {!!error && (
+              <Alert severity="error" onClose={() => setError('')}>
+                {error}
+              </Alert>
+            )}
+          </Stack>
+        </LocalizationProvider>
+      </DialogContent>
+      <DialogActions>
+        <Button onClick={onClose} color="inherit">Cancel</Button>
+        <Button
+          onClick={submit}
+          variant="contained"
+          startIcon={<AddIcon />}
+          disabled={submitting || (creationMeetingOptions?.length ?? 0) === 0}
+        >
+          {submitting ? 'Creating…' : 'Create Task'}
+        </Button>
+      </DialogActions>
+    </Dialog>
+  );
+});
 
 const TasksPage = () => {
   const { user } = useContext(AuthUserContext);
@@ -27,7 +216,7 @@ const TasksPage = () => {
     loading,
     fetchByProject, fetchByMeeting,
     completeTask, reopenTask, updateTask, deleteTask, createTask,
-    meetings, // from context wiring
+    meetings,
   } = useTasks();
 
   const safeTasks = Array.isArray(tasks) ? tasks : [];
@@ -38,20 +227,13 @@ const TasksPage = () => {
   const [projectId, setProjectId] = useState(initialProjectId);
   const [meetingId, setMeetingId] = useState(initialMeetingId);
   const [statusFilter, setStatusFilter] = useState('all'); // all | open | completed | overdue
-  const [from, setFrom] = useState('');
-  const [to, setTo] = useState('');
+
+  // Filters: dayjs|null for pickers
+  const [from, setFrom] = useState(null);
+  const [to, setTo] = useState(null);
 
   // Create modal state
   const [createOpen, setCreateOpen] = useState(false);
-  const [createSubmitting, setCreateSubmitting] = useState(false);
-  const [createError, setCreateError] = useState('');
-  const [createMeetingId, setCreateMeetingId] = useState(''); // controlled (lightweight)
-  const dialogKeyRef = useRef(0); // force remount for fresh defaults each open
-
-  // Uncontrolled refs (no re-render per keystroke)
-  const titleRef = useRef(null);
-  const descRef = useRef(null);
-  const dueRef = useRef(null);
 
   useEffect(() => {
     if (meetingId) {
@@ -84,7 +266,7 @@ const TasksPage = () => {
     return pool.sort((a, b) => new Date(b.proposedDate) - new Date(a.proposedDate));
   }, [meetings, projectId]);
 
-  // Eligible for task creation: 'held' OR (accepted & past) for back-compat
+  // Eligible for task creation: (UI shows held & accepted+past for convenience; server enforces 'held')
   const creationMeetingOptions = useMemo(() => {
     const now = Date.now();
     return allMeetingOptions.filter((m) => {
@@ -93,11 +275,6 @@ const TasksPage = () => {
       return m.status === 'held' || (m.status === 'accepted' && when < now);
     });
   }, [allMeetingOptions]);
-
-  const activeMeeting = useMemo(
-    () => (meetingId ? allMeetingOptions.find((m) => m._id === meetingId) : null),
-    [meetingId, allMeetingOptions]
-  );
 
   const filteredTasks = useMemo(() => {
     let list = safeTasks.slice();
@@ -132,48 +309,37 @@ const TasksPage = () => {
     else if (projectId) await fetchByProject(projectId);
   };
 
-  const openCreate = () => {
-    setCreateError('');
-    // Prefill with current meeting if it’s eligible; otherwise first eligible
-    const preferredId =
-      (meetingId && creationMeetingOptions.some((m) => m._id === meetingId)) ? meetingId :
-      (creationMeetingOptions[0]?._id || '');
-    setCreateMeetingId(preferredId);
+  const openCreate = () => setCreateOpen(true);
+  const closeCreate = () => setCreateOpen(false);
 
-    // Reset uncontrolled inputs by bumping dialog key & clearing refs after mount
-    dialogKeyRef.current += 1;
-    setCreateOpen(true);
+  // Pass-throughs (no window.alert here; TaskCard will render inline errors)
+  const handleCreate = useCallback((payload) => createTask(payload), [createTask]);
+  const handleUpdate = useCallback((...args) => updateTask(...args), [updateTask]);
+
+  // ---- Clear all filters visibility & logic ----
+  const hasActiveFilters = useMemo(() => {
+    const projectActive = isMentor ? !!projectId : false;
+    const meetingActive = !!meetingId;
+    const statusActive = statusFilter !== 'all';
+    const dateActive = !!from || !!to;
+    return projectActive || meetingActive || statusActive || dateActive;
+  }, [isMentor, projectId, meetingId, statusFilter, from, to]);
+
+  const clearAllFilters = () => {
+    if (isMentor) setProjectId('');
+    setMeetingId('');
+    setStatusFilter('all');
+    setFrom(null);
+    setTo(null);
   };
 
-  const closeCreate = () => {
-    setCreateOpen(false);
-    setCreateError('');
-  };
+  // ---- Column sizes for the filter row (sum to 12 on md+) ----
+  const cols = isMentor
+    ? { project: 3, meeting: 4, from: 2, to: 2, clear: 1 }
+    : { meeting: 5, from: 3, to: 3, clear: 1 };
 
-  const submitCreate = async () => {
-    setCreateError('');
-    const title = titleRef.current?.value?.trim() || '';
-    const description = descRef.current?.value?.trim() || '';
-    const dueDateRaw = dueRef.current?.value || '';
-    if (!createMeetingId || !title) {
-      setCreateError('Meeting and title are required.');
-      return;
-    }
-    try {
-      setCreateSubmitting(true);
-      await createTask({
-        meetingId: createMeetingId,
-        title,
-        description,
-        dueDate: dueDateRaw ? new Date(dueDateRaw) : undefined,
-      });
-      setCreateSubmitting(false);
-      setCreateOpen(false);
-    } catch (e) {
-      setCreateSubmitting(false);
-      setCreateError(e?.response?.data?.message || 'Failed to create task.');
-    }
-  };
+  // Common helper-text style to reserve height
+  const helperSx = { minHeight: 20 };
 
   return (
     <Container maxWidth="lg" sx={{ py: 4 }}>
@@ -203,7 +369,7 @@ const TasksPage = () => {
             <Chip size="small" color="error" label={`Overdue: ${counts.overdue}`} />
           </Stack>
 
-          <Stack direction="row" spacing={1} alignItems="center">
+          <Stack direction="row" spacing={1} alignItems="center" flexWrap="wrap">
             <ToggleButtonGroup
               value={statusFilter}
               exclusive
@@ -217,9 +383,15 @@ const TasksPage = () => {
               <ToggleButton value="overdue">Overdue</ToggleButton>
             </ToggleButtonGroup>
 
-            <IconButton onClick={handleRefresh} title="Refresh" size="small" disabled={loading}>
-              {loading ? <CircularProgress size={18} /> : <RefreshIcon />}
-            </IconButton>
+            <Button
+              onClick={handleRefresh}
+              startIcon={<RefreshIcon />}
+              size="small"
+              disabled={loading}
+              variant="outlined"
+            >
+              {loading ? 'Refreshing…' : 'Refresh'}
+            </Button>
 
             {isMentor && (
               <Button
@@ -227,6 +399,7 @@ const TasksPage = () => {
                 size="small"
                 startIcon={<AddIcon />}
                 onClick={openCreate}
+                disabled={createOpen}  // prevent spamming while dialog is open
               >
                 New Task
               </Button>
@@ -234,85 +407,115 @@ const TasksPage = () => {
           </Stack>
         </Stack>
 
-        {/* Active meeting pill */}
-        {activeMeeting && (
-          <Stack direction="row" spacing={1} alignItems="center" sx={{ mt: 1 }}>
-            <Chip
-              color="primary"
-              variant="outlined"
-              label={`Meeting: ${dayjs(activeMeeting.proposedDate).format('DD/MM HH:mm')} — ${activeMeeting.project?.name || 'Project'}`}
-            />
-            <Button size="small" onClick={() => setMeetingId('')}>Clear</Button>
-          </Stack>
-        )}
-
         <Divider sx={{ my: 2 }} />
 
-        {/* Filters row */}
-        <Grid container spacing={1.5}>
-          {isMentor && (
-            <Grid item size={{ xs: 12, md: 3 }}>
+        {/* Filters row (bottom-aligned; Clear button aligned via helper height) */}
+        <LocalizationProvider dateAdapter={AdapterDayjs}>
+          <Grid container spacing={1.5} alignItems="flex-end">
+            {isMentor && (
+              <Grid item xs={12} md={cols.project}>
+                <TextField
+                  select
+                  size="small"
+                  fullWidth
+                  label="Project"
+                  value={projectId}
+                  onChange={(e) => {
+                    setMeetingId('');
+                    setProjectId(e.target.value);
+                  }}
+                  helperText="Filter tasks tied to a specific project"
+                  FormHelperTextProps={{ sx: helperSx }}
+                >
+                  <MenuItem value="">All</MenuItem>
+                  {(projectOptions || []).map((p) => (
+                    <MenuItem key={p._id} value={p._id}>{p.name}</MenuItem>
+                  ))}
+                </TextField>
+              </Grid>
+            )}
+
+            <Grid item xs={12} md={cols.meeting}>
               <TextField
                 select
                 size="small"
                 fullWidth
-                label="Project"
-                value={projectId}
-                onChange={(e) => {
-                  setMeetingId('');
-                  setProjectId(e.target.value);
+                label="Meeting"
+                value={meetingId}
+                onChange={(e) => setMeetingId(e.target.value)}
+                helperText="Filter tasks tied to a specific meeting"
+                FormHelperTextProps={{
+                  sx: {
+                    ...helperSx,
+                    whiteSpace: 'nowrap',
+                    overflow: 'hidden',
+                    textOverflow: 'ellipsis',
+                  },
                 }}
               >
                 <MenuItem value="">All</MenuItem>
-                {(projectOptions || []).map((p) => (
-                  <MenuItem key={p._id} value={p._id}>{p.name}</MenuItem>
+                {(allMeetingOptions || []).map((m) => (
+                  <MenuItem key={m._id} value={m._id}>
+                    {/* Make meeting date explicit here as well */}
+                    Meeting on {dayjs(m.proposedDate).format('DD/MM HH:mm')} — {m.project?.name || 'Project'}
+                  </MenuItem>
                 ))}
               </TextField>
             </Grid>
-          )}
 
-          <Grid item size={{ xs: 12, md: isMentor ? 3 : 4 }}>
-            <TextField
-              select
-              size="small"
-              fullWidth
-              label="Meeting"
-              value={meetingId}
-              onChange={(e) => setMeetingId(e.target.value)}
-              helperText="Filter tasks tied to a specific meeting"
+            <Grid item xs={6} md={cols.from}>
+              <DatePicker
+                label="Due from"
+                value={from}
+                onChange={setFrom}
+                format="DD/MM/YYYY"
+                slotProps={{
+                  textField: {
+                    size: 'small',
+                    fullWidth: true,
+                    helperText: '\u00A0',
+                    FormHelperTextProps: { sx: helperSx },
+                  },
+                }}
+              />
+            </Grid>
+
+            <Grid item xs={6} md={cols.to}>
+              <DatePicker
+                label="Due to"
+                value={to}
+                onChange={setTo}
+                format="DD/MM/YYYY"
+                slotProps={{
+                  textField: {
+                    size: 'small',
+                    fullWidth: true,
+                    helperText: '\u00A0',
+                    FormHelperTextProps: { sx: helperSx },
+                  },
+                }}
+              />
+            </Grid>
+
+            <Grid
+              item
+              xs={12}
+              md={cols.clear}
+              sx={{
+                display: 'flex',
+                justifyContent: { xs: 'flex-start', md: 'flex-end' },
+                alignItems: 'flex-end',
+                pb: `${helperSx.minHeight}px`,
+              }}
             >
-              <MenuItem value="">All</MenuItem>
-              {(allMeetingOptions || []).map((m) => (
-                <MenuItem key={m._id} value={m._id}>
-                  {dayjs(m.proposedDate).format('DD/MM HH:mm')} — {m.project?.name || 'Project'}
-                </MenuItem>
-              ))}
-            </TextField>
+              {hasActiveFilters && (
+                <Button size="small" variant="text" onClick={clearAllFilters}>
+                  Clear filters
+                </Button>
+              )}
+            </Grid>
           </Grid>
-
-          <Grid item size={{ xs: 6, md: isMentor ? 3 : 2.5 }}>
-            <TextField
-              size="small"
-              fullWidth
-              type="date"
-              label="Due from"
-              InputLabelProps={{ shrink: true }}
-              value={from}
-              onChange={(e) => setFrom(e.target.value)}
-            />
-          </Grid>
-          <Grid item size={{ xs: 6, md: isMentor ? 3 : 2.5 }}>
-            <TextField
-              size="small"
-              fullWidth
-              type="date"
-              label="Due to"
-              InputLabelProps={{ shrink: true }}
-              value={to}
-              onChange={(e) => setTo(e.target.value)}
-            />
-          </Grid>
-        </Grid>
+        </LocalizationProvider>
 
         <Divider sx={{ my: 2 }} />
 
@@ -339,13 +542,13 @@ const TasksPage = () => {
         ) : (
           <Grid container spacing={2}>
             {filteredTasks.map((t) => (
-              <Grid key={t._id} item size={{ xs: 12, sm: 6, md: 4 }}>
+              <Grid key={t._id} item xs={12} sm={6} md={4}>
                 <TaskCard
                   task={t}
                   role={user?.role}
                   onComplete={completeTask}
                   onReopen={reopenTask}
-                  onUpdate={updateTask}
+                  onUpdate={handleUpdate}
                   onDelete={deleteTask}
                 />
               </Grid>
@@ -356,83 +559,16 @@ const TasksPage = () => {
 
       {/* Create Task Modal (mentor only) */}
       {isMentor && (
-        <Dialog
-          key={dialogKeyRef.current} // force remount for fresh defaults
+        <CreateTaskDialog
           open={createOpen}
           onClose={closeCreate}
-          fullWidth
-          maxWidth="md"
-        >
-          <DialogTitle>Create Task</DialogTitle>
-          <DialogContent dividers>
-            <Stack spacing={2}>
-              <TextField
-                select
-                label="Meeting (held)"
-                value={createMeetingId}
-                onChange={(e) => setCreateMeetingId(e.target.value)}
-                helperText={(creationMeetingOptions?.length ?? 0) === 0
-                  ? 'No eligible held meetings found. A meeting becomes eligible once it has been held.'
-                  : 'Attach this task to a held meeting'}
-                fullWidth
-              >
-                <MenuItem value="">Select meeting…</MenuItem>
-                {(creationMeetingOptions || []).map((m) => (
-                  <MenuItem key={m._id} value={m._id}>
-                    {dayjs(m.proposedDate).format('DD/MM/YYYY HH:mm')} — {m.project?.name || 'Project'}
-                  </MenuItem>
-                ))}
-              </TextField>
-
-              <Grid container spacing={2}>
-                <Grid item size={{ xs: 12, md: 6 }}>
-                  <TextField
-                    label="Title"
-                    fullWidth
-                    defaultValue=""
-                    inputRef={titleRef}
-                  />
-                </Grid>
-                <Grid item size={{ xs: 12, md: 6 }}>
-                  <TextField
-                    type="datetime-local"
-                    label="Due date (optional)"
-                    InputLabelProps={{ shrink: true }}
-                    fullWidth
-                    defaultValue=""
-                    inputRef={dueRef}
-                  />
-                </Grid>
-              </Grid>
-
-              <TextField
-                label="Description"
-                fullWidth
-                multiline
-                minRows={3}
-                defaultValue=""
-                inputRef={descRef}
-              />
-
-              {!!createError && (
-                <Alert severity="error" onClose={() => setCreateError('')}>
-                  {createError}
-                </Alert>
-              )}
-            </Stack>
-          </DialogContent>
-          <DialogActions>
-            <Button onClick={closeCreate} color="inherit">Cancel</Button>
-            <Button
-              onClick={submitCreate}
-              variant="contained"
-              startIcon={<AddIcon />}
-              disabled={createSubmitting || (creationMeetingOptions?.length ?? 0) === 0}
-            >
-              {createSubmitting ? 'Creating…' : 'Create Task'}
-            </Button>
-          </DialogActions>
-        </Dialog>
+          creationMeetingOptions={creationMeetingOptions}
+          defaultMeetingId={
+            (meetingId && creationMeetingOptions.some((m) => m._id === meetingId)) ? meetingId
+            : (creationMeetingOptions[0]?._id || '')
+          }
+          onCreate={handleCreate}
+        />
       )}
     </Container>
   );
