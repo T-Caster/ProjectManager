@@ -1,96 +1,106 @@
-// client/src/contexts/TaskContext.jsx
 import React, { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
+import dayjs from 'dayjs';
 import taskService from '../services/taskService';
+import { onEvent, offEvent } from '../services/socketService';
 import { AuthUserContext } from './AuthUserContext';
 import { useMeetings } from './MeetingContext';
 
 export const TaskContext = createContext(null);
-
 export const useTasks = () => useContext(TaskContext);
+
+// Sort by due date ascending, then creation date descending
+const byDueDate = (a, b) => {
+  const d1 = dayjs(a.dueDate).valueOf();
+  const d2 = dayjs(b.dueDate).valueOf();
+  if (d1 !== d2) return d1 - d2;
+  return dayjs(b.createdAt).valueOf() - dayjs(a.createdAt).valueOf();
+};
 
 export const TaskProvider = ({ children }) => {
   const { user } = useContext(AuthUserContext);
   const { meetings } = useMeetings();
 
   const [tasks, setTasks] = useState([]);
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
 
   // lightweight cache for counts by meetingId to avoid refetching
   const countCacheRef = useRef(new Map()); // meetingId -> number
   const inflightRef = useRef(new Map());   // meetingId -> Promise<number>
 
-  // server fetchers (populate main list)
-  const fetchByProject = useCallback(async (projectId) => {
+  const fetchTasks = useCallback(async () => {
+    if (!user) return;
     setLoading(true);
+    setError(null);
     try {
-      const data = await taskService.listByProject(projectId);
-      setTasks(data || []);
+      const data = await taskService.listMyTasks();
+      const sorted = (Array.isArray(data) ? data : []).sort(byDueDate);
+      setTasks(sorted);
+    } catch (err) {
+      console.error('Failed to fetch tasks', err);
+      setError(err);
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [user]);
 
-  const fetchByMeeting = useCallback(async (meetingId) => {
-    setLoading(true);
-    try {
-      const data = await taskService.listByMeeting(meetingId);
-      setTasks(data || []);
-    } finally {
-      setLoading(false);
-    }
-  }, []);
+  useEffect(() => {
+    fetchTasks();
+  }, [fetchTasks]);
 
-  // mutations
-  const completeTask = useCallback(async (taskId) => {
-    const updated = await taskService.completeTask(taskId);
-    setTasks((prev) => prev.map((t) => (t._id === updated._id ? updated : t)));
-    // invalidate count cache for that task's meeting if present
-    const mId = updated.meeting?._id || updated.meeting;
-    if (mId && countCacheRef.current.has(String(mId))) {
-      countCacheRef.current.delete(String(mId));
-    }
-    return updated;
-  }, []);
+  useEffect(() => {
+    if (!user) return;
 
-  const reopenTask = useCallback(async (taskId) => {
-    const updated = await taskService.reopenTask(taskId);
-    setTasks((prev) => prev.map((t) => (t._id === updated._id ? updated : t)));
-    const mId = updated.meeting?._id || updated.meeting;
-    if (mId && countCacheRef.current.has(String(mId))) {
-      countCacheRef.current.delete(String(mId));
-    }
-    return updated;
-  }, []);
+    const handleTaskUpdate = (incoming) => {
+      setTasks((prev) => {
+        const next = [...prev];
+        const idx = next.findIndex((t) => t._id === incoming._id);
+        if (idx >= 0) {
+          next[idx] = incoming;
+        } else {
+          next.push(incoming);
+        }
+        next.sort(byDueDate);
+        return next;
+      });
+      // invalidate count cache
+      const mId = incoming.meeting?._id || incoming.meeting;
+      if (mId) countCacheRef.current.delete(String(mId));
+    };
 
-  const updateTask = useCallback(async (taskId, payload) => {
-    const updated = await taskService.updateTask(taskId, payload);
-    setTasks((prev) => prev.map((t) => (t._id === updated._id ? updated : t)));
-    return updated;
-  }, []);
+    const handleTaskDelete = ({ _id }) => {
+      // Before deleting, find the task to invalidate cache
+      setTasks((prev) => {
+        const current = prev.find((t) => t._id === _id);
+        if (current) {
+          const mId = current.meeting?._id || current.meeting;
+          if (mId) countCacheRef.current.delete(String(mId));
+        }
+        return prev.filter((t) => t._id !== _id);
+      });
+    };
 
-  const deleteTask = useCallback(async (taskId) => {
-    // grab meeting id before deletion so we can invalidate cache
-    const current = tasks.find((t) => t._id === taskId);
-    await taskService.deleteTask(taskId);
-    setTasks((prev) => prev.filter((t) => t._id !== taskId));
-    const mId = current?.meeting?._id || current?.meeting;
-    if (mId && countCacheRef.current.has(String(mId))) {
-      countCacheRef.current.delete(String(mId));
-    }
-  }, [tasks]);
+    onEvent('taskCreated', handleTaskUpdate);
+    onEvent('taskUpdated', handleTaskUpdate);
+    onEvent('taskDeleted', handleTaskDelete);
 
-  const createTask = useCallback(async (payload) => {
-    const created = await taskService.createTask(payload);
-    setTasks((prev) => [created, ...prev]);
-    const mId = created.meeting?._id || created.meeting;
-    if (mId && countCacheRef.current.has(String(mId))) {
-      countCacheRef.current.delete(String(mId));
-    }
-    return created;
-  }, []);
+    return () => {
+      offEvent('taskCreated', handleTaskUpdate);
+      offEvent('taskUpdated', handleTaskUpdate);
+      offEvent('taskDeleted', handleTaskDelete);
+    };
+  }, [user]);
+
+  // Mutations call the service, but socket handles state updates.
+  // We can return the promise from the service so UI can await it for pending states.
+  const createTask = (payload) => taskService.createTask(payload);
+  const completeTask = (taskId) => taskService.completeTask(taskId);
+  const reopenTask = (taskId) => taskService.reopenTask(taskId);
+  const updateTask = (taskId, payload) => taskService.updateTask(taskId, payload);
+  const deleteTask = (taskId) => taskService.deleteTask(taskId);
 
   /**
-   * NEW: get a count of tasks for a meeting without mutating the main list.
+   * Get a count of tasks for a meeting without mutating the main list.
    * Uses a small cache + inflight de-dup.
    */
   const countTasksForMeeting = useCallback(async (meetingId) => {
@@ -115,39 +125,33 @@ export const TaskProvider = ({ children }) => {
     return p;
   }, []);
 
-  // TODO: sockets could update counts and list together
-  useEffect(() => {
-    // placeholder for socket wiring
-  }, []);
-
   const value = useMemo(
     () => ({
       tasks,
       loading,
-      meetings,
-      // fetchers
-      fetchByProject,
-      fetchByMeeting,
+      error,
+      meetings, // from useMeetings, passed through
+      refetchTasks: fetchTasks,
       // mutations
+      createTask,
       completeTask,
       reopenTask,
       updateTask,
       deleteTask,
-      createTask,
       // counts
       countTasksForMeeting,
     }),
     [
       tasks,
       loading,
+      error,
       meetings,
-      fetchByProject,
-      fetchByMeeting,
+      fetchTasks,
+      createTask,
       completeTask,
       reopenTask,
       updateTask,
       deleteTask,
-      createTask,
       countTasksForMeeting,
     ]
   );

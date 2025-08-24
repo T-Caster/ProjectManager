@@ -1,6 +1,6 @@
 import axios from '../utils/axios';
 
-const listMine = async () => {
+const listMyTasks = async () => {
   const { data } = await axios.get('/tasks/mine');
   return data;
 };
@@ -41,6 +41,7 @@ const deleteTask = async (taskId) => {
 };
 
 export default {
+  listMyTasks,
   listByProject,
   listByMeeting,
   createTask,
