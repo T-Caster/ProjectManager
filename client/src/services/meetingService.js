@@ -6,6 +6,11 @@ const proposeMeeting = async (meetingData) => {
   return data;
 };
 
+const getMeetings = async () => {
+  const { data } = await axios.get(`/meetings/`);
+  return data;
+};
+
 const getMeetingsByProject = async (projectId) => {
   const { data } = await axios.get(`/meetings/${projectId}`);
   return data;
@@ -43,6 +48,7 @@ const studentDeclineMeeting = async (meetingId) => {
 
 export default {
   proposeMeeting,
+  getMeetings,
   getMeetingsByProject,
   getMeetingsForMentor,
   approveMeeting,

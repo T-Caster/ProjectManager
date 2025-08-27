@@ -31,11 +31,13 @@ export const MeetingProvider = ({ children }) => {
         promise = meetingService.getMeetingsByProject(user.project._id);
       } else if (user.role === 'mentor') {
         promise = meetingService.getMeetingsForMentor();
+      } else if (user.role === "hod") {
+        promise = meetingService.getMeetings()
       } else {
-        // For other roles like 'hod', or if student has no project, fetch nothing.
-        setMeetings([]);
-        setLoading(false);
-        return;
+        // never going to reach this but just in case
+        setMeetings([])
+        setLoading(false)
+        return
       }
 
       const arr = await promise;

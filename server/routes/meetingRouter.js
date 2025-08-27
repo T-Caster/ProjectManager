@@ -13,6 +13,15 @@ const meetingPopulateOptions = [
   { path: "project", select: "name" },
 ];
 
+router.get("/", authMiddleware, roleMiddleware(["hod"]), async (req, res) => {
+  try {
+    const meetings = await Meeting.find().populate(meetingPopulateOptions);
+    res.json(meetings);
+  } catch (error) {
+    res.status(500).json({ message: "Server error", error });
+  }
+});
+
 // Propose a meeting
 router.post("/propose", authMiddleware, roleMiddleware(["student"]), async (req, res) => {
   try {

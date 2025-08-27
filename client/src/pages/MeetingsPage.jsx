@@ -1,4 +1,4 @@
-import React, { useState, useContext } from 'react';
+import React, { useState, useContext, useMemo } from 'react';
 import { Container, Snackbar, Alert } from '@mui/material';
 import MeetingsSection from '../components/MeetingsSection';
 import { useMeetings } from '../contexts/MeetingContext';
@@ -19,6 +19,7 @@ const MeetingsPage = () => {
   const [filter, setFilter] = useState('all');
   const [toast, setToast] = useState('');
   const [refreshing, setRefreshing] = useState(false);
+  const emptyMessage = useMemo(() => user.role === "mentor" ? "New meeting requests from your students will appear here." : "Meetings will appear here")
 
   const handleRefresh = async () => {
     setRefreshing(true);
@@ -75,12 +76,12 @@ const MeetingsPage = () => {
         onRefresh={handleRefresh}
         filter={filter}
         onFilterChange={setFilter}
-        role="mentor"
+        role={user.role}
         currentUserId={user?._id}
         onApprove={handleApprove}
         onDecline={handleDecline}
         onReschedule={handlePostpone}
-        emptyStateMessage="New meeting requests from your students will appear here."
+        emptyStateMessage={emptyMessage}
       />
       <Snackbar
         open={!!toast}

@@ -38,34 +38,28 @@ export default function App() {
           <Route path="/dashboard" element={<DashboardPage />} />
           <Route path="/profile" element={<ProfilePage />} />
           <Route path="/profile/:id" element={<ProfilePage />} />
-
-        {/* Student Routes */}
-        <Route element={<RoleBasedGuard roles={['student']} />}>
-          <Route path="/propose-project" element={<ProposeProjectPage />} />
-          <Route path="/propose-project/:proposalId" element={<ProposeProjectPage />} />
-          <Route path="/schedule-meeting" element={<ScheduleMeetingPage />} />
-        </Route>
-
-        {/* Student & Mentor Routes */}
-        <Route element={<RoleBasedGuard roles={['student', 'mentor']} />}>
           <Route path="/tasks" element={<TasksPage />} />
-        </Route>
 
-        {/* Mentor Routes */}
-        <Route element={<RoleBasedGuard roles={['mentor', 'hod']} />}>
-          <Route path="/my-students" element={<MyStudentsPage />} />
-        </Route>
-        <Route element={<RoleBasedGuard roles={['mentor']} />}>
-          <Route path="/meetings" element={<MeetingsPage />} />
-        </Route>
+          {/* Student Routes */}
+          <Route element={<RoleBasedGuard roles={['student']} />}>
+            <Route path="/propose-project" element={<ProposeProjectPage />} />
+            <Route path="/propose-project/:proposalId" element={<ProposeProjectPage />} />
+            <Route path="/schedule-meeting" element={<ScheduleMeetingPage />} />
+          </Route>
 
-        {/* HOD Routes */}
-        <Route element={<RoleBasedGuard roles={['hod']} />}>
-          <Route path="/all-projects" element={<AllProjectsPage />} />
-          <Route path="/proposals-queue" element={<ProposalsQueuePage />} />
-          <Route path="/proposal-review/:proposalId" element={<ProposalReviewPage />} />
+          {/* Mentor Routes */}
+          <Route element={<RoleBasedGuard roles={['mentor', 'hod']} />}>
+            <Route path="/my-students" element={<MyStudentsPage />} />
+            <Route path="/meetings" element={<MeetingsPage />} />
+          </Route>
+
+          {/* HOD Routes */}
+          <Route element={<RoleBasedGuard roles={['hod']} />}>
+            <Route path="/all-projects" element={<AllProjectsPage />} />
+            <Route path="/proposals-queue" element={<ProposalsQueuePage />} />
+            <Route path="/proposal-review/:proposalId" element={<ProposalReviewPage />} />
+          </Route>
         </Route>
-      </Route>
       </Routes>
     </LocalizationProvider>
   );

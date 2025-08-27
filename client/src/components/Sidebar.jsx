@@ -31,19 +31,21 @@ const studentMenuItems = [
 ];
 
 const mentorMenuItems = [
-    { text: 'Dashboard', icon: <DashboardIcon />, path: '/dashboard' },
-    { text: 'Profile', icon: <PersonIcon />, path: '/profile' },
-    { text: 'My Students', icon: <GroupIcon />, path: '/my-students' },
-    { text: 'Meetings', icon: <EventIcon />, path: '/meetings' },
-    { text: 'Tasks', icon: <AssignmentIcon />, path: '/tasks' },
+  { text: 'Dashboard', icon: <DashboardIcon />, path: '/dashboard' },
+  { text: 'Profile', icon: <PersonIcon />, path: '/profile' },
+  { text: 'My Students', icon: <GroupIcon />, path: '/my-students' },
+  { text: 'Meetings', icon: <EventIcon />, path: '/meetings' },
+  { text: 'Tasks', icon: <AssignmentIcon />, path: '/tasks' },
 ];
 
 const hodMenuItems = [
-    { text: 'Dashboard', icon: <DashboardIcon />, path: '/dashboard' },
-    { text: 'Profile', icon: <PersonIcon />, path: '/profile' },
-    { text: 'All Projects', icon: <AssignmentIcon />, path: '/all-projects' },
-    { text: 'Proposals Queue', icon: <NoteAddIcon />, path: '/proposals-queue' },
-    { text: 'All Students', icon: <GroupIcon />, path: '/my-students' },
+  { text: 'Dashboard', icon: <DashboardIcon />, path: '/dashboard' },
+  { text: 'Profile', icon: <PersonIcon />, path: '/profile' },
+  { text: 'All Projects', icon: <AssignmentIcon />, path: '/all-projects' },
+  { text: 'Proposals Queue', icon: <NoteAddIcon />, path: '/proposals-queue' },
+  { text: 'Meetings', icon: <EventIcon />, path: '/meetings' },
+  { text: 'Tasks', icon: <AssignmentIcon />, path: '/tasks' },
+  { text: 'All Students', icon: <GroupIcon />, path: '/my-students' },
 ];
 
 const Sidebar = () => {
