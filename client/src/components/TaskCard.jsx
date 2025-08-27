@@ -13,7 +13,7 @@ import dayjs from 'dayjs';
 
 const TaskCard = ({
   task,
-  role, // 'student' | 'mentor'
+  role, // 'student' | 'mentor' | 'hod'
   onComplete,
   onReopen,
   onUpdate,
@@ -33,7 +33,7 @@ const TaskCard = ({
 
   const canEdit = role === 'mentor' && task.status === 'open';
   const canDelete = role === 'mentor' && task.status === 'open';
-  const canComplete = task.status === 'open' && !editing; // hide while editing
+  const canComplete = task.status === 'open' && !editing && role != "hod"; // hide while editing
   const canReopen = role === 'mentor' && task.status === 'completed';
 
   const dueStr = useMemo(

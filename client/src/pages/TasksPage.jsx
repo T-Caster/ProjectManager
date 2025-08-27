@@ -206,7 +206,7 @@ const CreateTaskDialog = React.memo(function CreateTaskDialog({
 
 const TasksPage = () => {
   const { user } = useContext(AuthUserContext);
-  const isMentor = user?.role === 'mentor';
+  const isMentor = user?.role === 'mentor' || user?.role === "hod";
 
   const navigate = useNavigate();
   const query = useQuery();
@@ -398,7 +398,7 @@ const TasksPage = () => {
               {loading ? 'Refreshing…' : 'Refresh'}
             </Button>
 
-            {isMentor && (
+            {isMentor && user?.role !== "hod" && (
               <Button
                 variant="contained"
                 size="small"
