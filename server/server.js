@@ -10,6 +10,7 @@ const hodRoutes = require('./routes/hodRouter');
 const proposalRoutes = require('./routes/proposalRouter');
 const meetingRoutes = require('./routes/meetingRouter');
 const taskRoutes = require("./routes/taskRouter");
+const projectRoutes = require('./routes/projectRouter');
 const path = require('path');
 
 dotenv.config();
@@ -33,6 +34,7 @@ app.use('/api/hod', hodRoutes);
 app.use('/api/proposals', proposalRoutes);
 app.use('/api/meetings', meetingRoutes);
 app.use('/api/tasks', taskRoutes);
+app.use('/api/projects', projectRoutes);
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 
 const PORT = process.env.PORT || 5000;

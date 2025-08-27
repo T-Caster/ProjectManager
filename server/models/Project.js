@@ -6,6 +6,12 @@ const projectSchema = new mongoose.Schema(
     background: { type: String, required: true, trim: true },
     objectives: { type: String, required: true, trim: true },
 
+    status: {
+      type: String,
+      enum: ['proposal', 'specification', 'code', 'presentation', 'done'],
+      default: 'proposal',
+    },
+
     // Exactly 1–2 students
     students: {
       type: [{ type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true }],

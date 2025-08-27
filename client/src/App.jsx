@@ -22,6 +22,9 @@ import { LocalizationProvider } from '@mui/x-date-pickers';
 import { AdapterDayjs } from '@mui/x-date-pickers/AdapterDayjs'
 import { MeetingProvider } from "./contexts/MeetingContext";
 import { TaskProvider } from "./contexts/TaskContext";
+import { ProjectProvider } from "./contexts/ProjectContext";
+import ProjectsPage from "./pages/ProjectsPage";
+import ProjectPage from "./pages/ProjectPage";
 
 export default function App() {
   return (
@@ -34,7 +37,7 @@ export default function App() {
         <Route path="/reset-password" element={<AuthRoute><ResetPasswordPage /></AuthRoute>} />
         <Route path="/reset-password/:token" element={<AuthRoute><ResetPasswordPage /></AuthRoute>} />
 
-        <Route element={<AuthGuard><ProposalProvider><MeetingProvider><TaskProvider><DashboardLayout /></TaskProvider></MeetingProvider></ProposalProvider></AuthGuard>}>
+        <Route element={<AuthGuard><ProposalProvider><MeetingProvider><TaskProvider><ProjectProvider><DashboardLayout /></ProjectProvider></TaskProvider></MeetingProvider></ProposalProvider></AuthGuard>}>
           <Route path="/dashboard" element={<DashboardPage />} />
           <Route path="/profile" element={<ProfilePage />} />
           <Route path="/profile/:id" element={<ProfilePage />} />
@@ -51,6 +54,8 @@ export default function App() {
           <Route element={<RoleBasedGuard roles={['mentor', 'hod']} />}>
             <Route path="/my-students" element={<MyStudentsPage />} />
             <Route path="/meetings" element={<MeetingsPage />} />
+            <Route path="/projects" element={<ProjectsPage />} />
+            <Route path="/projects/:projectId" element={<ProjectPage />} />
           </Route>
 
           {/* HOD Routes */}
