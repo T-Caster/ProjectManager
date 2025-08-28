@@ -1,5 +1,6 @@
 const express = require("express");
 const router = express.Router();
+const User = require("../models/User");
 const Project = require("../models/Project");
 const authMiddleware = require("../middleware/authMiddleware");
 const roleMiddleware = require("../middleware/roleMiddleware");
@@ -13,20 +14,22 @@ const projectPopulateOptions = [
 // Get projects based on user role
 router.get("/", authMiddleware, async (req, res) => {
   try {
-    const { role, id } = req.user;
+    const { id } = req.user;
+    const user = await User.findById(id);
     let projects;
 
-    if (role === "hod") {
+    if (user.role === "hod") {
       projects = await Project.find().populate(projectPopulateOptions);
-    } else if (role === "mentor") {
+    } else if (user.role === "mentor") {
       projects = await Project.find({ mentor: id }).populate(projectPopulateOptions);
-    } else if (role === "student") {
+    } else if (user.role === "student") {
       projects = await Project.find({ students: id }).populate(projectPopulateOptions);
     } else {
       return res.status(403).json({ message: "You are not authorized to view projects." });
     }
     res.json(projects);
   } catch (error) {
+    console.error(500)
     res.status(500).json({ message: "Server error", error });
   }
 });
