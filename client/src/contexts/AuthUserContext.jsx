@@ -62,14 +62,22 @@ export const AuthUserProvider = ({ children }) => {
       syncUserWithoutLoading();
     };
 
+    const handleUserUpdate = (updatedUser) => {
+      if (user && user._id === updatedUser._id) {
+        syncUserWithoutLoading();
+      }
+    };
+
     socket.on('updateProposals', handleProposalsUpdate);
+    socket.on('userUpdated', handleUserUpdate);
 
     return () => {
       if (socket) {
         socket.off('updateProposals', handleProposalsUpdate);
+        socket.off('userUpdated', handleUserUpdate);
       }
     };
-  }, [socket, syncUserWithoutLoading]);
+  }, [socket, syncUserWithoutLoading, user]);
 
   const logout = () => {
     localStorage.removeItem("token");

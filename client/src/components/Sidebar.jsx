@@ -48,6 +48,7 @@ const hodMenuItems = [
   { text: 'Meetings', icon: <EventIcon />, path: '/meetings' },
   { text: 'Tasks', icon: <AssignmentIcon />, path: '/tasks' },
   { text: 'All Students', icon: <GroupIcon />, path: '/my-students' },
+  { text: 'Manage Users', icon: <GroupIcon />, path: '/users' },
 ];
 
 const Sidebar = () => {

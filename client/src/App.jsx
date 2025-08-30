@@ -25,6 +25,7 @@ import { TaskProvider } from "./contexts/TaskContext";
 import { ProjectProvider } from "./contexts/ProjectContext";
 import ProjectsPage from "./pages/ProjectsPage";
 import ProjectPage from "./pages/ProjectPage";
+import ViewUsersPage from "./pages/ViewUsersPage";
 
 export default function App() {
   return (
@@ -63,6 +64,7 @@ export default function App() {
             <Route path="/all-projects" element={<AllProjectsPage />} />
             <Route path="/proposals-queue" element={<ProposalsQueuePage />} />
             <Route path="/proposal-review/:proposalId" element={<ProposalReviewPage />} />
+            <Route path="/users" element={<ViewUsersPage />} />
           </Route>
         </Route>
       </Routes>

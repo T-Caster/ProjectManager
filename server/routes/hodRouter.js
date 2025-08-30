@@ -3,7 +3,48 @@ const authMiddleware = require("../middleware/authMiddleware");
 const roleMiddleware = require("../middleware/roleMiddleware");
 const User = require("../models/User");
 
+const { getIo } = require("../services/socketManager");
 const router = express.Router();
+
+// HOD gets all users
+router.get('/users', authMiddleware, roleMiddleware(['hod']), async (req, res) => {
+  try {
+    const users = await User.find({}).select("-password");
+    res.json(users);
+  } catch (err) {
+    res.status(500).json({ error: 'Server error' });
+  }
+});
+
+// HOD updates a user's profile
+router.put('/users/:id', authMiddleware, roleMiddleware(['hod']), async (req, res) => {
+  try {
+    const { email, idNumber, role } = req.body;
+    const updates = {};
+
+    if (email) updates.email = email;
+    if (idNumber) updates.idNumber = idNumber;
+    if (role) {
+      if (!['student', 'mentor', 'hod'].includes(role)) {
+        return res.status(400).json({ error: 'Invalid role' });
+      }
+      updates.role = role;
+    }
+
+    const user = await User.findByIdAndUpdate(req.params.id, updates, { new: true }).select("-password");
+
+    if (!user) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+
+    // Emit a socket event to notify clients of the user update
+    getIo().emit("userUpdated", user);
+
+    res.json(user);
+  } catch (err) {
+    res.status(500).json({ error: 'Server error' });
+  }
+});
 
 // HOD gets all students
 router.get('/students', authMiddleware, roleMiddleware(['hod']), async (req, res) => {
