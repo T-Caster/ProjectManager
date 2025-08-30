@@ -1,4 +1,5 @@
-import React, { useMemo, useState } from 'react';
+import React, { useMemo, useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import {
   Container,
   Paper,
@@ -42,6 +43,13 @@ const STATUS_COLORS = {
 const ProjectsPage = () => {
   const { user } = useContext(AuthUserContext);
   const { projects, loading, error, refetchProjects } = useProjects();
+  const navigate = useNavigate();
+
+  useEffect(() => {
+    if (user?.role === 'student' && user?.project?._id) {
+      navigate(`/projects/${user.project._id}`);
+    }
+  }, [user, navigate]);
 
   const [statusFilter, setStatusFilter] = useState('all'); // all | proposal | specification | code | presentation | done
   const [query, setQuery] = useState('');

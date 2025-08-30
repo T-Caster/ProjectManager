@@ -32,10 +32,11 @@ import dayjs from 'dayjs';
 import relativeTime from 'dayjs/plugin/relativeTime';
 
 import projectService from '../services/projectService';
-import meetingService from '../services/meetingService';
+import { onEvent, offEvent } from '../services/socketService';
 import MeetingsSection from '../components/MeetingsSection';
 import { AuthUserContext } from '../contexts/AuthUserContext';
 import { useProjects } from '../contexts/ProjectContext';
+import { useMeetings } from '../contexts/MeetingContext';
 
 dayjs.extend(relativeTime);
 
@@ -51,9 +52,9 @@ const ProjectPage = () => {
   const { projectId } = useParams();
   const { user } = useContext(AuthUserContext);
   const { updateProjectStatus } = useProjects();
+  const { meetings: allMeetings, loading: meetingsLoading, refetchMeetings } = useMeetings();
 
   const [project, setProject] = useState(null);
-  const [meetings, setMeetings] = useState([]);
   const [loading, setLoading] = useState(true);
   const [meetingFilter, setMeetingFilter] = useState('all');
   const [savingStatus, setSavingStatus] = useState(false);
@@ -66,9 +67,8 @@ const ProjectPage = () => {
       setLoading(true);
       setError(null);
       const projectData = await projectService.getProject(projectId);
-      const meetingsData = await meetingService.getMeetingsByProject(projectId);
       setProject(projectData);
-      setMeetings(Array.isArray(meetingsData) ? meetingsData : []);
+      refetchMeetings();
     } catch (err) {
       setError(err);
     } finally {
@@ -76,9 +76,27 @@ const ProjectPage = () => {
     }
   };
 
+  const meetings = useMemo(() => {
+    return allMeetings.filter((m) => m.project?._id === projectId);
+  }, [allMeetings, projectId]);
+
   useEffect(() => {
     load();
     // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [projectId]);
+
+  useEffect(() => {
+    const handleProjectUpdate = (updatedProject) => {
+      if (updatedProject._id === projectId) {
+        setProject(updatedProject);
+      }
+    };
+
+    onEvent('project:updated', handleProjectUpdate);
+
+    return () => {
+      offEvent('project:updated', handleProjectUpdate);
+    };
   }, [projectId]);
 
   const handleStatusChange = async (event) => {

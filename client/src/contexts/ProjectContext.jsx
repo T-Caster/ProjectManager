@@ -1,5 +1,6 @@
 import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import projectService from '../services/projectService';
+import { onEvent, offEvent } from '../services/socketService';
 import { AuthUserContext } from './AuthUserContext';
 
 const ProjectContext = createContext();
@@ -30,6 +31,20 @@ export const ProjectProvider = ({ children }) => {
   useEffect(() => {
     fetchProjects();
   }, [fetchProjects]);
+
+  useEffect(() => {
+    const handleProjectUpdate = (updatedProject) => {
+      setProjects((prevProjects) =>
+        prevProjects.map((p) => (p._id === updatedProject._id ? updatedProject : p))
+      );
+    };
+
+    onEvent('project:updated', handleProjectUpdate);
+
+    return () => {
+      offEvent('project:updated', handleProjectUpdate);
+    };
+  }, []);
 
   const updateProjectStatus = async (projectId, status) => {
     try {

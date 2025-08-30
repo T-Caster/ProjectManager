@@ -66,6 +66,18 @@ router.put("/:projectId/status", authMiddleware, roleMiddleware(["mentor"]), asy
 
     const populatedProject = await Project.findById(project._id).populate(projectPopulateOptions);
 
+    const { io, users } = req;
+    const studentIds = populatedProject.students.map(student => student._id.toString());
+    const mentorId = populatedProject.mentor._id.toString();
+
+    const userIds = [...studentIds, mentorId];
+
+    userIds.forEach(userId => {
+      if (users[userId]) {
+        io.to(users[userId]).emit('project:updated', populatedProject);
+      }
+    });
+
     res.json(populatedProject);
   } catch (error) {
     res.status(500).json({ message: "Server error", error });

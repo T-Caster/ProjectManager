@@ -24,6 +24,7 @@ const drawerWidth = 240;
 
 const studentMenuItems = [
   { text: 'Dashboard', icon: <DashboardIcon />, path: '/dashboard' },
+  { text: 'Projects', icon: <AssignmentIcon />, path: '/projects' },
   { text: 'Profile', icon: <PersonIcon />, path: '/profile' },
   { text: 'Propose Project', icon: <NoteAddIcon />, path: '/propose-project' },
   { text: 'Schedule Meeting', icon: <EventIcon />, path: '/schedule-meeting' },
