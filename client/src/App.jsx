@@ -42,6 +42,8 @@ export default function App() {
           <Route path="/profile" element={<ProfilePage />} />
           <Route path="/profile/:id" element={<ProfilePage />} />
           <Route path="/tasks" element={<TasksPage />} />
+          <Route path="/projects" element={<ProjectsPage />} />
+          <Route path="/projects/:projectId" element={<ProjectPage />} />
 
           {/* Student Routes */}
           <Route element={<RoleBasedGuard roles={['student']} />}>
@@ -54,8 +56,6 @@ export default function App() {
           <Route element={<RoleBasedGuard roles={['mentor', 'hod']} />}>
             <Route path="/my-students" element={<MyStudentsPage />} />
             <Route path="/meetings" element={<MeetingsPage />} />
-            <Route path="/projects" element={<ProjectsPage />} />
-            <Route path="/projects/:projectId" element={<ProjectPage />} />
           </Route>
 
           {/* HOD Routes */}

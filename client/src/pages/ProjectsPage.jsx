@@ -51,6 +51,19 @@ const ProjectsPage = () => {
     }
   }, [user, navigate]);
 
+  if (user?.role === 'student') {
+    return (
+      <Container maxWidth="sm" sx={{ py: 8 }}>
+        <Stack alignItems="center" spacing={2}>
+          <CircularProgress />
+          <Typography variant="body2" color="text.secondary">
+            Taking you to your project…
+          </Typography>
+        </Stack>
+      </Container>
+    );
+  }
+
   const [statusFilter, setStatusFilter] = useState('all'); // all | proposal | specification | code | presentation | done
   const [query, setQuery] = useState('');
 

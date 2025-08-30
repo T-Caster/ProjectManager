@@ -34,9 +34,13 @@ export const ProjectProvider = ({ children }) => {
 
   useEffect(() => {
     const handleProjectUpdate = (updatedProject) => {
-      setProjects((prevProjects) =>
-        prevProjects.map((p) => (p._id === updatedProject._id ? updatedProject : p))
-      );
+      setProjects(prev => {
+        const idx = prev.findIndex(p => p._id === updatedProject._id);
+        if (idx === -1) return [updatedProject, ...prev]; // insert if missing
+        const copy = prev.slice();
+        copy[idx] = updatedProject;
+        return copy;
+      });
     };
 
     onEvent('project:updated', handleProjectUpdate);

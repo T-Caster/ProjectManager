@@ -24,7 +24,7 @@ const drawerWidth = 240;
 
 const studentMenuItems = [
   { text: 'Dashboard', icon: <DashboardIcon />, path: '/dashboard' },
-  { text: 'Projects', icon: <AssignmentIcon />, path: '/projects' },
+  { text: 'My Project', icon: <AssignmentIcon />, path: '/projects' },
   { text: 'Profile', icon: <PersonIcon />, path: '/profile' },
   { text: 'Propose Project', icon: <NoteAddIcon />, path: '/propose-project' },
   { text: 'Schedule Meeting', icon: <EventIcon />, path: '/schedule-meeting' },
@@ -61,15 +61,20 @@ const Sidebar = () => {
     navigate('/login');
   };
 
+  const studentProjectPath =
+    user?.role === 'student'
+      ? (user?.project?._id ? `/projects/${user.project._id}` : '/projects')
+      : null;
+
   let menuItems = [];
   if (user) {
     switch (user.role) {
       case 'student':
-        if (user.mentor) {
-          menuItems = studentMenuItems.filter(item => item.text !== 'Choose Mentor');
-        } else {
-          menuItems = studentMenuItems;
-        }
+        menuItems = studentMenuItems.map((item) =>
+          item.text === 'My Project'
+            ? { ...item, path: studentProjectPath ?? '/projects' }
+            : item
+        );
         break;
       case 'mentor':
         menuItems = mentorMenuItems;

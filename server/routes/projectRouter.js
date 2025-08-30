@@ -71,11 +71,18 @@ router.put("/:projectId/status", authMiddleware, roleMiddleware(["mentor"]), asy
     const mentorId = populatedProject.mentor._id.toString();
 
     const userIds = [...studentIds, mentorId];
+    const hods = await User.find({ role: 'hod' }, '_id').lean();
+    userIds.push(...hods.map(h => h._id.toString()));
 
-    userIds.forEach(userId => {
-      if (users[userId]) {
-        io.to(users[userId]).emit('project:updated', populatedProject);
-      }
+    // Emit to ALL sockets a user might have (array or single id)
+    userIds.forEach((userId) => {
+      const sockets = req.users?.[userId];
+      if (!sockets) return;
+
+      const socketIds = Array.isArray(sockets) ? sockets : [sockets];
+      socketIds.forEach((sid) => {
+        req.io.to(sid).emit('project:updated', populatedProject);
+      });
     });
 
     res.json(populatedProject);
