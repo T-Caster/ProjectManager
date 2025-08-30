@@ -11,6 +11,7 @@ import dayjs from 'dayjs';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { AuthUserContext } from '../contexts/AuthUserContext';
 import { useTasks } from '../contexts/TaskContext';
+import { useMeetings } from '../contexts/MeetingContext';
 import TaskCard from '../components/TaskCard';
 
 // MUI X date pickers
@@ -64,9 +65,9 @@ const CreateTaskDialog = React.memo(function CreateTaskDialog({
 
   const missingMeeting = !meetingId;
   const missingTitle = !titleRef.current?.value?.trim();
-  const missingDesc  = !descRef.current?.value?.trim();
-  const missingDue   = !due || !due.isValid?.();
-  const dueInPast    = !missingDue && !due.isAfter(now);
+  const missingDesc = !descRef.current?.value?.trim();
+  const missingDue = !due || !due.isValid?.();
+  const dueInPast = !missingDue && !due.isAfter(now);
 
   const submit = async () => {
     if (submitLockRef.current) return;          // guard #1 (instant)
@@ -162,8 +163,8 @@ const CreateTaskDialog = React.memo(function CreateTaskDialog({
                       error: tried && (missingDue || dueInPast),
                       helperText:
                         tried && missingDue ? 'Due date is required'
-                        : tried && dueInPast ? 'Due date must be in the future'
-                        : '\u00A0',
+                          : tried && dueInPast ? 'Due date must be in the future'
+                            : '\u00A0',
                     },
                   }}
                 />
@@ -207,6 +208,7 @@ const CreateTaskDialog = React.memo(function CreateTaskDialog({
 const TasksPage = () => {
   const { user } = useContext(AuthUserContext);
   const isMentor = user?.role === 'mentor' || user?.role === "hod";
+  const { refetchMeetings } = useMeetings();
 
   const navigate = useNavigate();
   const query = useQuery();
@@ -240,6 +242,11 @@ const TasksPage = () => {
     if (isMentor && projectId) params.set('projectId', projectId);
     navigate({ search: params.toString() }, { replace: true });
   }, [meetingId, projectId, navigate, isMentor]);
+
+  // Ensure meetings are fresh when landing on this page
+  useEffect(() => {
+    refetchMeetings();
+  }, [refetchMeetings]);
 
   const projectOptions = useMemo(() => {
     if (!isMentor) return user?.project ? [user.project] : [];
@@ -570,7 +577,7 @@ const TasksPage = () => {
           creationMeetingOptions={creationMeetingOptions}
           defaultMeetingId={
             (meetingId && creationMeetingOptions.some((m) => m._id === meetingId)) ? meetingId
-            : (creationMeetingOptions[0]?._id || '')
+              : (creationMeetingOptions[0]?._id || '')
           }
           onCreate={handleCreate}
         />
