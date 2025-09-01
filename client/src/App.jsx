@@ -12,7 +12,6 @@ import RoleBasedGuard from "./components/RoleBasedGuard";
 import ProposeProjectPage from "./pages/ProposeProjectPage";
 import ScheduleMeetingPage from "./pages/ScheduleMeetingPage";
 import TasksPage from "./pages/TasksPage";
-import MyStudentsPage from "./pages/MyStudentsPage";
 import MeetingsPage from "./pages/MeetingsPage";
 import AllProjectsPage from "./pages/AllProjectsPage";
 import { ProposalProvider } from "./contexts/ProposalContext";
@@ -55,7 +54,6 @@ export default function App() {
 
           {/* Mentor Routes */}
           <Route element={<RoleBasedGuard roles={['mentor', 'hod']} />}>
-            <Route path="/my-students" element={<MyStudentsPage />} />
             <Route path="/meetings" element={<MeetingsPage />} />
           </Route>
 

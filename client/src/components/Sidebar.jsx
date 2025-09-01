@@ -34,7 +34,6 @@ const studentMenuItems = [
 const mentorMenuItems = [
   { text: 'Dashboard', icon: <DashboardIcon />, path: '/dashboard' },
   { text: 'Profile', icon: <PersonIcon />, path: '/profile' },
-  { text: 'My Students', icon: <GroupIcon />, path: '/my-students' },
   { text: 'Projects', icon: <AssignmentIcon />, path: '/projects' },
   { text: 'Meetings', icon: <EventIcon />, path: '/meetings' },
   { text: 'Tasks', icon: <AssignmentIcon />, path: '/tasks' },
@@ -47,7 +46,6 @@ const hodMenuItems = [
   { text: 'Proposals Queue', icon: <NoteAddIcon />, path: '/proposals-queue' },
   { text: 'Meetings', icon: <EventIcon />, path: '/meetings' },
   { text: 'Tasks', icon: <AssignmentIcon />, path: '/tasks' },
-  { text: 'All Students', icon: <GroupIcon />, path: '/my-students' },
   { text: 'Manage Users', icon: <GroupIcon />, path: '/users' },
 ];
 
