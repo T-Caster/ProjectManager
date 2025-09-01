@@ -12,7 +12,7 @@ import {
   Button,
 } from '@mui/material';
 import { useProjects } from '../../contexts/ProjectContext';
-import { useProposals } from '../../contexts/ProposalContext';
+import { useProposals } from '../../contexts/useProposals';
 import { getUsers } from '../../services/hodService';
 import ProjectStatusBarChart from '../../components/ProjectStatusBarChart';
 import ProjectStatusPieChart from '../../components/ProjectStatusPieChart';
