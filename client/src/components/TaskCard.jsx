@@ -1,7 +1,7 @@
 import React, { useMemo, useState, useRef } from 'react';
 import {
-  Card, CardHeader, CardContent, CardActions,
-  Stack, Typography, Chip, TextField, Tooltip, Button, Alert
+  Card, CardContent, CardActions, Stack, Typography, Chip, TextField,
+  Tooltip, Button, Alert, Divider, Box, useTheme
 } from '@mui/material';
 import CheckCircleIcon from '@mui/icons-material/CheckCircle';
 import ReplayIcon from '@mui/icons-material/Replay';
@@ -19,6 +19,7 @@ const TaskCard = ({
   onUpdate,
   onDelete,
 }) => {
+  const theme = useTheme();
   const [editing, setEditing] = useState(false);
   const [saving, setSaving] = useState(false);
   const titleRef = useRef(null);
@@ -33,7 +34,7 @@ const TaskCard = ({
 
   const canEdit = role === 'mentor' && task.status === 'open';
   const canDelete = role === 'mentor' && task.status === 'open';
-  const canComplete = task.status === 'open' && !editing && role != "hod"; // hide while editing
+  const canComplete = task.status === 'open' && !editing && role !== 'hod';
   const canReopen = role === 'mentor' && task.status === 'completed';
 
   const dueStr = useMemo(
@@ -71,13 +72,12 @@ const TaskCard = ({
       <Chip
         size="small"
         icon={<EventIcon />}
-        // Make it explicit this is the meeting date
         label={
           task.meeting?.proposedDate
             ? `Meeting: ${dayjs(task.meeting.proposedDate).format('DD/MM HH:mm')}`
             : 'Meeting'
         }
-        sx={{ ml: 1 }}
+        sx={{ ml: 0.5 }}
         color="default"
         variant="outlined"
       />
@@ -85,10 +85,7 @@ const TaskCard = ({
   );
 
   const resetErrors = () => {
-    setErrTitle('');
-    setErrDesc('');
-    setErrDue('');
-    setServerError('');
+    setErrTitle(''); setErrDesc(''); setErrDue(''); setServerError('');
   };
 
   const validateLocal = () => {
@@ -98,26 +95,14 @@ const TaskCard = ({
     const dueRaw = dueRef.current?.value || '';
     let ok = true;
 
-    if (!t) {
-      setErrTitle('Title is required');
-      ok = false;
-    }
-    if (!d) {
-      setErrDesc('Description is required');
-      ok = false;
-    }
+    if (!t) { setErrTitle('Title is required'); ok = false; }
+    if (!d) { setErrDesc('Description is required'); ok = false; }
     if (!dueRaw) {
-      setErrDue('Due date is required');
-      ok = false;
+      setErrDue('Due date is required'); ok = false;
     } else {
       const due = dayjs(dueRaw);
-      if (!due.isValid()) {
-        setErrDue('Invalid due date');
-        ok = false;
-      } else if (!due.isAfter(dayjs())) {
-        setErrDue('Due date must be in the future');
-        ok = false;
-      }
+      if (!due.isValid()) { setErrDue('Invalid due date'); ok = false; }
+      else if (!due.isAfter(dayjs())) { setErrDue('Due date must be in the future'); ok = false; }
     }
     return ok;
   };
@@ -138,38 +123,76 @@ const TaskCard = ({
       setEditing(false);
     } catch (e) {
       const msg = e?.response?.data?.message || 'Failed to update task.';
-      // Map known server messages to field errors where possible
-      if (/Title cannot be empty/i.test(msg) || /Title is required/i.test(msg)) {
-        setErrTitle('Title is required');
-      } else if (/Description cannot be empty/i.test(msg) || /Description is required/i.test(msg)) {
-        setErrDesc('Description is required');
-      } else if (/dueDate/i.test(msg)) {
-        setErrDue(msg); // could be "dueDate is required" / "Invalid dueDate" / "Due date must be in the future"
-      } else {
-        setServerError(msg);
-      }
+      if (/Title cannot be empty/i.test(msg) || /Title is required/i.test(msg)) setErrTitle('Title is required');
+      else if (/Description cannot be empty/i.test(msg) || /Description is required/i.test(msg)) setErrDesc('Description is required');
+      else if (/dueDate/i.test(msg)) setErrDue(msg);
+      else setServerError(msg);
     } finally {
       setSaving(false);
     }
   };
 
+  // color rail by status
+  const railColor =
+    task.status === 'completed'
+      ? (task.completedLate ? theme.palette.warning.main : theme.palette.success.main)
+      : task.isOverdue
+        ? theme.palette.error.main
+        : theme.palette.info.main;
+
   return (
-    <Card variant="outlined" sx={{ borderRadius: 3 }}>
-      <CardHeader
-        title={
+    <Card
+      variant="outlined"
+      sx={{
+        position: 'relative',
+        borderRadius: 3,
+        overflow: 'hidden',
+      }}
+    >
+      {/* Left status rail */}
+      <Box
+        sx={{
+          position: 'absolute',
+          insetInlineStart: 0,
+          top: 0,
+          bottom: 0,
+          width: 4,
+          bgcolor: railColor,
+          borderTopLeftRadius: 12,
+          borderBottomLeftRadius: 12,
+        }}
+      />
+
+      {/* FULL-WIDTH HEADER (title + chips) */}
+      <Box sx={{ pt: 2, px: 2.5 }}>
+        <Stack spacing={0.75}>
           <Stack direction="row" spacing={1} alignItems="center" flexWrap="wrap">
-            <Typography variant="h6" sx={{ lineHeight: 1.2 }}>{task.title}</Typography>
+            <Typography
+              variant="h6"
+              sx={{
+                lineHeight: 1.25,
+                overflow: 'hidden',
+                display: '-webkit-box',
+                WebkitLineClamp: 2,          // up to two lines, then ellipsis
+                WebkitBoxOrient: 'vertical',
+              }}
+            >
+              {task.title}
+            </Typography>
             {statusChip}
             {meetingChip}
           </Stack>
-        }
-        subheader={
+
           <Typography variant="caption" color="text.secondary">
             Project: {task.project?.name || '—'} • Created {createdStr}
           </Typography>
-        }
-      />
-      <CardContent sx={{ pt: 0.5 }}>
+        </Stack>
+      </Box>
+
+      <Divider sx={{ mt: 1.25 }} />
+
+      {/* BODY */}
+      <CardContent sx={{ pt: 1.5, pb: 0 }}>
         {editing ? (
           <Stack spacing={1.25}>
             <TextField
@@ -203,11 +226,12 @@ const TaskCard = ({
               InputLabelProps={{ shrink: true }}
               error={!!errDue}
               helperText={errDue || '\u00A0'}
+              sx={{ maxWidth: { sm: 300 } }}
             />
             {serverError && <Alert severity="error" onClose={() => setServerError('')}>{serverError}</Alert>}
           </Stack>
         ) : (
-          <Stack spacing={0.5}>
+          <Stack spacing={0.75}>
             <Typography variant="body2" sx={{ whiteSpace: 'pre-wrap' }}>
               {task.description || '—'}
             </Typography>
@@ -217,7 +241,9 @@ const TaskCard = ({
           </Stack>
         )}
       </CardContent>
-      <CardActions sx={{ justifyContent: 'flex-end', gap: 1, flexWrap: 'wrap' }}>
+
+      {/* ACTIONS */}
+      <CardActions sx={{ justifyContent: 'flex-end', gap: 1, flexWrap: 'wrap', px: 2.5, py: 1.5 }}>
         {canComplete && (
           <Button
             color="success"

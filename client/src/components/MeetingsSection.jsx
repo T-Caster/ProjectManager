@@ -5,12 +5,12 @@ import {
   Typography,
   Chip,
   Divider,
-  Grid,
   IconButton,
   CircularProgress,
   ToggleButton,
   ToggleButtonGroup,
   Button,
+  Box,
 } from '@mui/material';
 import RefreshIcon from '@mui/icons-material/Refresh';
 import FilterListIcon from '@mui/icons-material/FilterList';
@@ -20,11 +20,9 @@ import { useTasks } from '../contexts/TaskContext';
 import { useMeetings } from '../contexts/MeetingContext';
 import { AuthUserContext } from '../contexts/AuthUserContext';
 
-
 const MeetingsSection = ({
   title,
-  projectId, // optional project ID to filter meetings
-  // Custom empty state text
+  projectId,
   emptyStateTitle,
   emptyStateMessage,
 }) => {
@@ -64,9 +62,8 @@ const MeetingsSection = ({
     return meetings.filter((m) => m.status === filter);
   }, [meetings, filter]);
 
-  // per-meeting tasks count (uses context helper)
   const { countTasksForMeeting } = useTasks();
-  const [taskCounts, setTaskCounts] = useState({}); // { [meetingId]: number }
+  const [taskCounts, setTaskCounts] = useState({});
 
   useEffect(() => {
     let cancelled = false;
@@ -104,7 +101,7 @@ const MeetingsSection = ({
         background: theme.palette.background.paper,
       })}
     >
-      {/* Section header: title + filters + refresh + counts */}
+      {/* Header */}
       <Stack
         direction={{ xs: 'column', sm: 'row' }}
         spacing={1.5}
@@ -121,7 +118,7 @@ const MeetingsSection = ({
           <Chip size="small" color="warning" variant="outlined" label={`Expired: ${counts.expired}`} />
         </Stack>
 
-        <Stack direction="row" spacing={1} alignItems="center">
+        <Stack direction="row" spacing={1} alignItems="center" flexWrap="wrap">
           <ToggleButtonGroup
             value={filter}
             exclusive
@@ -188,9 +185,19 @@ const MeetingsSection = ({
           </Stack>
         </Paper>
       ) : (
-        <Grid container spacing={2}>
+        // Responsive masonry-like grid: no overlap, graceful wrap
+        <Box
+          sx={(t) => ({
+            display: 'grid',
+            gap: 2,
+            gridTemplateColumns: '1fr',
+            // grow columns with safe min width (prevents overlap)
+            [t.breakpoints.up('sm')]: 'grid-template-columns: repeat(auto-fill, minmax(280px, 1fr))',
+            [t.breakpoints.up('md')]: 'grid-template-columns: repeat(auto-fill, minmax(320px, 1fr))',
+          })}
+        >
           {filteredMeetings.map((meeting) => (
-            <Grid item size={{xs: 12, sm: 6, md: 4}} key={meeting._id}>
+            <Box key={meeting._id}>
               <MeetingCard
                 meeting={meeting}
                 role={user.role}
@@ -202,9 +209,9 @@ const MeetingsSection = ({
                 onReschedule={(payload) => postponeMeeting(meeting._id, payload)}
                 tasksCount={taskCounts[meeting._id]}
               />
-            </Grid>
+            </Box>
           ))}
-        </Grid>
+        </Box>
       )}
     </Paper>
   );

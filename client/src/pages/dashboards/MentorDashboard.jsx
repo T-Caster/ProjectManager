@@ -44,7 +44,6 @@ const MentorDashboard = () => {
   const totalMyProjects = mentorProjects.length;
   const totalUpcoming = useMemo(() => {
     return (meetings || []).filter((m) => {
-      console.log(m.status)
       return m.status === 'accepted'
     }).length;
   }, [meetings]);
@@ -201,6 +200,7 @@ const MentorDashboard = () => {
                 projects={mentorProjects}
                 loading={projectsLoading}
                 onRefresh={refetchProjects}
+                layout="list"               // <- full-width vertical rows like the Projects page
               />
             </CardContent>
           </Card>

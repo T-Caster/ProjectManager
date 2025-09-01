@@ -1,7 +1,6 @@
 import React, { useMemo, useState, useContext } from 'react';
 import {
   Card,
-  CardHeader,
   CardContent,
   CardActions,
   Chip,
@@ -16,6 +15,7 @@ import {
   TextField,
   Tooltip,
   IconButton,
+  useTheme,
 } from '@mui/material';
 import FolderOpenIcon from '@mui/icons-material/FolderOpen';
 import LaunchIcon from '@mui/icons-material/Launch';
@@ -23,8 +23,8 @@ import ArrowForwardIcon from '@mui/icons-material/ArrowForward';
 import { Link } from 'react-router-dom';
 import dayjs from 'dayjs';
 import relativeTime from 'dayjs/plugin/relativeTime';
-
 dayjs.extend(relativeTime);
+
 import { useProjects } from '../contexts/ProjectContext';
 import { AuthUserContext } from '../contexts/AuthUserContext';
 
@@ -45,6 +45,7 @@ const STATUS_COLORS = {
 };
 
 const ProjectCard = ({ project, currentUserRole }) => {
+  const theme = useTheme();
   const { updateProjectStatus } = useProjects();
   const { user } = useContext(AuthUserContext);
   const isMentor = (currentUserRole || user?.role) === 'mentor';
@@ -67,13 +68,12 @@ const ProjectCard = ({ project, currentUserRole }) => {
   const statusLabel = STATUS_LABELS[status] || status;
 
   const nextStatuses = useMemo(() => {
-    // Allow mentor to move forward, or back one step, or mark done if already presentation/code
     const idx = STATUS_ORDER.indexOf(status);
     const opts = new Set();
-    if (idx > 0) opts.add(STATUS_ORDER[idx - 1]);     // step back
-    opts.add(STATUS_ORDER[idx]);                       // current (disabled in UI)
-    if (idx < STATUS_ORDER.length - 1) opts.add(STATUS_ORDER[idx + 1]); // step forward
-    if (status !== 'done') opts.add('done');           // quick-complete
+    if (idx > 0) opts.add(STATUS_ORDER[idx - 1]);
+    opts.add(STATUS_ORDER[idx]);
+    if (idx < STATUS_ORDER.length - 1) opts.add(STATUS_ORDER[idx + 1]);
+    if (status !== 'done') opts.add('done');
     return STATUS_ORDER.filter((s) => opts.has(s));
   }, [status]);
 
@@ -87,12 +87,12 @@ const ProjectCard = ({ project, currentUserRole }) => {
     }
   };
 
-  const leftRailColor = (theme) => theme.palette[statusColor]?.main || theme.palette.divider;
+  const leftRailColor = theme.palette[statusColor]?.main || theme.palette.divider;
 
   return (
     <Card
       elevation={0}
-      sx={(theme) => ({
+      sx={{
         position: 'relative',
         borderRadius: 3,
         border: '1px solid',
@@ -100,68 +100,87 @@ const ProjectCard = ({ project, currentUserRole }) => {
         background: theme.palette.background.paper,
         display: 'flex',
         flexDirection: 'column',
-        height: '100%',
-      })}
+      }}
     >
-      {/* Left color rail keyed to status */}
+      {/* Status rail */}
       <Box
-        sx={(theme) => ({
+        sx={{
           position: 'absolute',
           insetInlineStart: 0,
           top: 0,
           bottom: 0,
           width: 4,
-          bgcolor: leftRailColor(theme),
+          bgcolor: leftRailColor,
           borderTopLeftRadius: 12,
           borderBottomLeftRadius: 12,
-        })}
+        }}
       />
 
-      <CardHeader
-        avatar={<FolderOpenIcon color={statusColor} />}
-        title={
-          <Stack direction="row" spacing={1} alignItems="center" flexWrap="wrap">
-            <Typography variant="h6" sx={{ lineHeight: 1.2 }}>{name}</Typography>
+      {/* FULL-WIDTH HEADER ROW */}
+      <Box sx={{ pt: 2, px: 2.5 }}>
+        <Stack spacing={0.75}>
+          <Stack direction="row" spacing={1.25} alignItems="center" flexWrap="wrap">
+            <FolderOpenIcon color={statusColor} />
+            <Typography
+              variant="h6"
+              sx={{
+                lineHeight: 1.25,
+                overflow: 'hidden',
+                display: '-webkit-box',
+                WebkitLineClamp: 2,      // wrap title to two lines max
+                WebkitBoxOrient: 'vertical',
+              }}
+            >
+              {name}
+            </Typography>
             <Chip size="small" label={statusLabel} color={statusColor} variant="outlined" />
           </Stack>
-        }
-        subheader={
+
           <Typography variant="body2" color="text.secondary">
             Updated {updatedAt ? dayjs(updatedAt).fromNow() : dayjs(createdAt).fromNow()}
           </Typography>
-        }
-        sx={{ pb: 1 }}
-      />
+        </Stack>
+      </Box>
 
-      <Divider />
+      <Divider sx={{ mt: 1.25 }} />
 
-      <CardContent sx={{ flexGrow: 1, pt: 1.5, pb: 0, display: 'grid', gap: 1 }}>
+      {/* BODY */}
+      <CardContent
+        sx={{
+          display: 'grid',
+          gap: 1.25,
+          py: 1.75,
+          px: 2.5,
+        }}
+      >
         {/* Mentor */}
-        <Stack direction="row" spacing={1.5} alignItems="center">
-          <Typography variant="body2" color="text.secondary" sx={{ minWidth: 90 }}>
+        <Stack direction="row" spacing={1.25} alignItems="center" flexWrap="wrap">
+          <Typography variant="body2" color="text.secondary" sx={{ minWidth: 76 }}>
             Mentor:
           </Typography>
-          <Stack direction="row" spacing={1} alignItems="center">
+          <Stack direction="row" spacing={1} alignItems="center" sx={{ minWidth: 0 }}>
             <Avatar src={mentor?.avatarUrl} alt={mentor?.fullName} sx={{ width: 24, height: 24 }}>
               {mentor?.fullName?.[0]}
             </Avatar>
-            <Typography variant="body2">{mentor?.fullName || snapshots?.mentorName || '—'}</Typography>
+            <Typography variant="body2" noWrap>
+              {mentor?.fullName || snapshots?.mentorName || '—'}
+            </Typography>
           </Stack>
         </Stack>
 
         {/* Students */}
-        <Stack direction="row" spacing={1.5} alignItems="center">
-          <Typography variant="body2" color="text.secondary" sx={{ minWidth: 90 }}>
+        <Stack direction="row" spacing={1.25} alignItems="center" flexWrap="wrap">
+          <Typography variant="body2" color="text.secondary" sx={{ minWidth: 76 }}>
             Students:
           </Typography>
-          <AvatarGroup max={4} sx={{ '& .MuiAvatar-root': { width: 28, height: 28 } }}>
+          <AvatarGroup max={4} sx={{ '& .MuiAvatar-root': { width: 26, height: 26 } }}>
             {students.map((s) => (
               <Avatar key={s._id} src={s.avatarUrl} alt={s.fullName}>
                 {s.fullName?.[0]}
               </Avatar>
             ))}
           </AvatarGroup>
-          <Typography variant="body2" noWrap sx={{ flex: 1, minWidth: 0 }}>
+          <Typography variant="body2" sx={{ minWidth: 0, flex: 1 }}>
             {students.map((s, i) => (
               <React.Fragment key={s._id || i}>
                 {i > 0 ? ', ' : ''}
@@ -171,29 +190,40 @@ const ProjectCard = ({ project, currentUserRole }) => {
           </Typography>
         </Stack>
 
-        {/* Quick glance text */}
-        <Stack direction="row" spacing={1.5} alignItems="flex-start">
-          <Typography variant="body2" color="text.secondary" sx={{ minWidth: 90 }}>
+        {/* Summary */}
+        <Stack direction="row" spacing={1.25} alignItems="flex-start" flexWrap="wrap">
+          <Typography variant="body2" color="text.secondary" sx={{ minWidth: 76 }}>
             Summary:
           </Typography>
-          <Typography variant="body2" color="text.primary" sx={{ lineHeight: 1.4 }}>
-            {(background || '').slice(0, 140) || '—'}
-            {(background || '').length > 140 ? '…' : ''}
+          <Typography variant="body2" sx={{ lineHeight: 1.45, flex: 1 }}>
+            {(background || '').slice(0, 160) || '—'}
+            {(background || '').length > 160 ? '…' : ''}
           </Typography>
         </Stack>
 
-        <Stack direction="row" spacing={1.5} alignItems="flex-start">
-          <Typography variant="body2" color="text.secondary" sx={{ minWidth: 90 }}>
+        {/* Objectives */}
+        <Stack direction="row" spacing={1.25} alignItems="flex-start" flexWrap="wrap">
+          <Typography variant="body2" color="text.secondary" sx={{ minWidth: 76 }}>
             Objectives:
           </Typography>
-          <Typography variant="body2" color="text.primary" sx={{ lineHeight: 1.4 }}>
-            {(objectives || '').slice(0, 140) || '—'}
-            {(objectives || '').length > 140 ? '…' : ''}
+          <Typography variant="body2" sx={{ lineHeight: 1.45, flex: 1 }}>
+            {(objectives || '').slice(0, 160) || '—'}
+            {(objectives || '').length > 160 ? '…' : ''}
           </Typography>
         </Stack>
       </CardContent>
 
-      <CardActions sx={{ px: 2, py: 1.25, justifyContent: 'space-between', gap: 1 }}>
+      {/* ACTIONS */}
+      <Divider />
+      <CardActions
+        sx={{
+          px: 2.5,
+          py: 1.5,
+          gap: 1,
+          justifyContent: 'space-between',
+          flexWrap: 'wrap',
+        }}
+      >
         <Button
           size="small"
           variant="text"
@@ -204,9 +234,8 @@ const ProjectCard = ({ project, currentUserRole }) => {
           View Details
         </Button>
 
-        {/* Mentor quick status control */}
         {isMentor ? (
-          <Stack direction="row" spacing={1} alignItems="center">
+          <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1} sx={{ width: { xs: '100%', sm: 'auto' } }}>
             <Tooltip title="Change status">
               <TextField
                 size="small"
@@ -214,7 +243,7 @@ const ProjectCard = ({ project, currentUserRole }) => {
                 value={status}
                 onChange={(e) => handleStatusChange(e.target.value)}
                 disabled={updating}
-                sx={{ minWidth: 160 }}
+                sx={{ minWidth: 180 }}
               >
                 {STATUS_ORDER.map((s) => (
                   <MenuItem key={s} value={s} disabled={s === status}>

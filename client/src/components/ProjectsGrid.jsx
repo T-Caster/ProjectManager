@@ -1,3 +1,4 @@
+// ProjectsGrid.jsx
 import React from 'react';
 import {
   Grid,
@@ -11,7 +12,7 @@ import EventAvailableIcon from '@mui/icons-material/EventAvailable';
 import ProjectCard from './ProjectCard';
 import { useAuthUser } from '../contexts/AuthUserContext';
 
-const ProjectsGrid = ({ projects, loading, error, onRefresh }) => {
+const ProjectsGrid = ({ projects, loading, error, onRefresh, layout = 'grid' }) => {
   const { user } = useAuthUser();
 
   if (loading) {
@@ -37,7 +38,7 @@ const ProjectsGrid = ({ projects, loading, error, onRefresh }) => {
     );
   }
 
-  if (projects.length === 0) {
+  if (!projects?.length) {
     return (
       <Paper
         elevation={0}
@@ -58,10 +59,17 @@ const ProjectsGrid = ({ projects, loading, error, onRefresh }) => {
     );
   }
 
+  const isList = layout === 'list';
+
   return (
     <Grid container spacing={2}>
       {projects.map((p) => (
-        <Grid key={p._id} item xs={12} sm={6} md={4}>
+        <Grid
+          key={p._id}
+          item
+          // Use the requested size={{}} prop syntax
+          size={isList ? { xs: 12 } : { xs: 12, sm: 6, md: 4 }}
+        >
           <ProjectCard project={p} currentUserRole={user?.role} />
         </Grid>
       ))}

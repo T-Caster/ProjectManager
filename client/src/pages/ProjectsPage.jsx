@@ -14,13 +14,15 @@ import {
   IconButton,
   CircularProgress,
   Button,
+  Grid,
+  Alert,
 } from '@mui/material';
 import RefreshIcon from '@mui/icons-material/Refresh';
 import SearchIcon from '@mui/icons-material/Search';
 import EventAvailableIcon from '@mui/icons-material/EventAvailable';
 import { useProjects } from '../contexts/ProjectContext';
 import { AuthUserContext } from '../contexts/AuthUserContext';
-import ProjectsGrid from '../components/ProjectsGrid';
+import ProjectCard from '../components/ProjectCard';
 
 const STATUS_KEYS = ['proposal', 'specification', 'code', 'presentation', 'done'];
 const STATUS_LABELS = {
@@ -77,6 +79,7 @@ const ProjectsPage = () => {
     return list;
   }, [safeProjects, statusFilter, query]);
 
+  // keep existing student redirect UX exactly as-is
   if (user?.role === 'student') {
     const pid = user?.project?._id;
     if (pid) return <Navigate to={`/projects/${pid}`} replace />;
@@ -127,6 +130,7 @@ const ProjectsPage = () => {
           background: theme.palette.background.paper,
         })}
       >
+        {/* Header + controls (unchanged logic) */}
         <Stack
           direction={{ xs: 'column', md: 'row' }}
           spacing={1.5}
@@ -186,12 +190,29 @@ const ProjectsPage = () => {
 
         <Divider sx={{ my: 2 }} />
 
-        <ProjectsGrid
-          projects={filtered}
-          loading={loading}
-          error={error}
-          onRefresh={refetchProjects}
-        />
+        {/* Vertical list of projects */}
+        {error ? (
+          <Alert severity="error" sx={{ mb: 2 }}>
+            Failed to load projects. Please try again.
+          </Alert>
+        ) : null}
+
+        {loading && !filtered.length ? (
+          <Stack alignItems="center" py={6} spacing={2}>
+            <CircularProgress />
+            <Typography variant="body2" color="text.secondary">Loading projects…</Typography>
+          </Stack>
+        ) : filtered.length === 0 ? (
+          <Alert severity="info">No projects match your filters.</Alert>
+        ) : (
+          <Grid container spacing={2}>
+            {filtered.map((p) => (
+              <Grid key={p._id} item size={{ xs: 12 }}>
+                <ProjectCard project={p} />
+              </Grid>
+            ))}
+          </Grid>
+        )}
       </Paper>
     </Container>
   );
