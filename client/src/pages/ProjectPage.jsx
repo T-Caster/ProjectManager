@@ -52,13 +52,14 @@ const ProjectPage = () => {
   const { projectId } = useParams();
   const { user } = useContext(AuthUserContext);
   const { updateProjectStatus } = useProjects();
-  const { meetings: allMeetings, loading: meetingsLoading, refetchMeetings } = useMeetings();
+  const { meetings: allMeetings, refetchMeetings } = useMeetings();
 
   const [project, setProject] = useState(null);
   const [loading, setLoading] = useState(true);
   const [meetingFilter, setMeetingFilter] = useState('all');
   const [savingStatus, setSavingStatus] = useState(false);
   const [error, setError] = useState(null);
+  const [noProject, setNoProject] = useState(false); // explicit flag to render "no project yet"
 
   const canEditStatus = user?.role === 'mentor' && user?._id === project?.mentor?._id;
 
@@ -66,25 +67,55 @@ const ProjectPage = () => {
     try {
       setLoading(true);
       setError(null);
+      setNoProject(false);
+
+      // No project id? Treat like "no project yet"
+      if (!projectId) {
+        setProject(null);
+        setNoProject(true);
+        return;
+      }
+
       const projectData = await projectService.getProject(projectId);
       setProject(projectData);
+      // Keep meetings fresh alongside project
       refetchMeetings();
     } catch (err) {
-      setError(err);
+      // If API gives a 404, treat as "no project yet" (common for students pre-approval)
+      const status = err?.response?.status || err?.status;
+      if (status === 404) {
+        setProject(null);
+        setNoProject(true);
+      } else {
+        setError(err);
+      }
     } finally {
       setLoading(false);
     }
   };
 
+  // Derive the meetings for this projectId (memoized)
   const meetings = useMemo(() => {
-    return allMeetings.filter((m) => m.project?._id === projectId);
+    return (allMeetings || []).filter((m) => m.project?._id === projectId);
   }, [allMeetings, projectId]);
 
+  // If I'm a student and I don't have a project yet -> mark "no project"
+  useEffect(() => {
+    if (user?.role === 'student' && !user?.project?._id) {
+      setNoProject(true);
+      setLoading(false);
+      setProject(null);
+      setError(null);
+    }
+  }, [user]);
+
+  // Load when projectId changes
   useEffect(() => {
     load();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [projectId]);
 
+  // Live updates via socket
   useEffect(() => {
     const handleProjectUpdate = (updatedProject) => {
       if (updatedProject._id === projectId) {
@@ -93,10 +124,7 @@ const ProjectPage = () => {
     };
 
     onEvent('project:updated', handleProjectUpdate);
-
-    return () => {
-      offEvent('project:updated', handleProjectUpdate);
-    };
+    return () => offEvent('project:updated', handleProjectUpdate);
   }, [projectId]);
 
   const handleStatusChange = async (event) => {
@@ -121,6 +149,7 @@ const ProjectPage = () => {
     return base;
   }, [meetings]);
 
+  // ---------- Render ----------
   if (loading) {
     return (
       <Container maxWidth="md" sx={{ display: 'flex', justifyContent: 'center', py: 4 }}>
@@ -129,10 +158,37 @@ const ProjectPage = () => {
     );
   }
 
-  if (error || !project) {
+  if (noProject) {
+    return (
+      <Container maxWidth="sm" sx={{ py: 6 }}>
+        <Alert severity="info" sx={{ mb: 2 }}>
+          Your proposal hasn’t been approved yet, so your project page isn’t available.
+          Once it’s approved, it will appear here automatically.
+        </Alert>
+        <Stack direction="row" spacing={1.5}>
+          <Button component={Link} to="/propose" variant="contained">
+            Go to Proposal
+          </Button>
+          <Button component={Link} to="/" variant="text">
+            Back to Home
+          </Button>
+        </Stack>
+      </Container>
+    );
+  }
+
+  if (error) {
     return (
       <Container maxWidth="md" sx={{ py: 4 }}>
         <Alert severity="error">Failed to load project details. Please try again later.</Alert>
+      </Container>
+    );
+  }
+
+  if (!project) {
+    return (
+      <Container maxWidth="md" sx={{ py: 4 }}>
+        <Alert severity="warning">Project not found.</Alert>
       </Container>
     );
   }
@@ -256,7 +312,6 @@ const ProjectPage = () => {
                 </Grid>
               </Stack>
             </CardContent>
-            {/* Optional footer space (kept empty so Actions align if added later) */}
           </Card>
         </Grid>
 

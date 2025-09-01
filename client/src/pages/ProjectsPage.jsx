@@ -1,5 +1,5 @@
-import React, { useMemo, useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import React, { useMemo, useState, useContext } from 'react';
+import { Navigate } from 'react-router-dom';
 import {
   Container,
   Paper,
@@ -21,7 +21,6 @@ import SearchIcon from '@mui/icons-material/Search';
 import EventAvailableIcon from '@mui/icons-material/EventAvailable';
 import { useProjects } from '../contexts/ProjectContext';
 import { AuthUserContext } from '../contexts/AuthUserContext';
-import { useContext } from 'react';
 import ProjectCard from '../components/ProjectCard';
 
 const STATUS_KEYS = ['proposal', 'specification', 'code', 'presentation', 'done'];
@@ -43,27 +42,8 @@ const STATUS_COLORS = {
 const ProjectsPage = () => {
   const { user } = useContext(AuthUserContext);
   const { projects, loading, error, refetchProjects } = useProjects();
-  const navigate = useNavigate();
 
-  useEffect(() => {
-    if (user?.role === 'student' && user?.project?._id) {
-      navigate(`/projects/${user.project._id}`);
-    }
-  }, [user, navigate]);
-
-  if (user?.role === 'student') {
-    return (
-      <Container maxWidth="sm" sx={{ py: 8 }}>
-        <Stack alignItems="center" spacing={2}>
-          <CircularProgress />
-          <Typography variant="body2" color="text.secondary">
-            Taking you to your project…
-          </Typography>
-        </Stack>
-      </Container>
-    );
-  }
-
+  // ---- local UI state (declare BEFORE any conditional returns) ----
   const [statusFilter, setStatusFilter] = useState('all'); // all | proposal | specification | code | presentation | done
   const [query, setQuery] = useState('');
 
@@ -87,7 +67,8 @@ const ProjectsPage = () => {
     if (q) {
       list = list.filter((p) => {
         const name = p.name?.toLowerCase() || '';
-        const mentor = p.mentor?.fullName?.toLowerCase() || p.snapshots?.mentorName?.toLowerCase() || '';
+        const mentor =
+          p.mentor?.fullName?.toLowerCase() || p.snapshots?.mentorName?.toLowerCase() || '';
         const studentNames = (p.students || [])
           .map((s) => s?.fullName?.toLowerCase())
           .filter(Boolean)
@@ -98,6 +79,47 @@ const ProjectsPage = () => {
     return list;
   }, [safeProjects, statusFilter, query]);
 
+  // ---- render-time routing for students (no early-hook returns, no useEffect navigate) ----
+  if (user?.role === 'student') {
+    const pid = user?.project?._id;
+    if (pid) return <Navigate to={`/projects/${pid}`} replace />;
+
+    // Student with NO approved project yet -> informative state (not a spinner)
+    return (
+      <Container maxWidth="sm" sx={{ py: 8 }}>
+        <Paper
+          elevation={0}
+          sx={(theme) => ({
+            p: 3,
+            borderRadius: 3,
+            border: '1px solid',
+            borderColor: 'divider',
+            background: theme.palette.background.paper,
+            textAlign: 'center',
+          })}
+        >
+          <EventAvailableIcon color="warning" sx={{ fontSize: 40, mb: 1 }} />
+          <Typography variant="h6" sx={{ mb: 1 }}>
+            No project yet
+          </Typography>
+          <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+            Your proposal hasn’t been approved yet, so your project page isn’t available.
+            Once it’s approved, it will appear automatically.
+          </Typography>
+          <Stack direction="row" spacing={1.5} justifyContent="center">
+            <Button href="/propose-project" variant="contained">
+              Go to Proposal
+            </Button>
+            <Button href="/dashboard" variant="text">
+              Back to Dashboard
+            </Button>
+          </Stack>
+        </Paper>
+      </Container>
+    );
+  }
+
+  // ---- default (mentor / hod) listing ----
   return (
     <Container maxWidth="lg" sx={{ py: 4 }}>
       <Paper
@@ -142,7 +164,9 @@ const ProjectsPage = () => {
             >
               <ToggleButton value="all">All</ToggleButton>
               {STATUS_KEYS.map((k) => (
-                <ToggleButton key={k} value={k}>{STATUS_LABELS[k]}</ToggleButton>
+                <ToggleButton key={k} value={k}>
+                  {STATUS_LABELS[k]}
+                </ToggleButton>
               ))}
             </ToggleButtonGroup>
 
@@ -160,12 +184,7 @@ const ProjectsPage = () => {
               }}
             />
 
-            <IconButton
-              onClick={refetchProjects}
-              title="Refresh"
-              size="small"
-              disabled={loading}
-            >
+            <IconButton onClick={refetchProjects} title="Refresh" size="small" disabled={loading}>
               {loading ? <CircularProgress size={18} /> : <RefreshIcon />}
             </IconButton>
           </Stack>
@@ -177,13 +196,17 @@ const ProjectsPage = () => {
         {loading ? (
           <Stack alignItems="center" py={6} spacing={2}>
             <CircularProgress />
-            <Typography variant="body2" color="text.secondary">Loading projects…</Typography>
+            <Typography variant="body2" color="text.secondary">
+              Loading projects…
+            </Typography>
           </Stack>
         ) : error ? (
           <Stack alignItems="center" py={6} spacing={1.5}>
             <EventAvailableIcon color="error" sx={{ fontSize: 36 }} />
             <Typography color="error">Failed to load projects.</Typography>
-            <Button onClick={refetchProjects} variant="outlined" size="small">Try again</Button>
+            <Button onClick={refetchProjects} variant="outlined" size="small">
+              Try again
+            </Button>
           </Stack>
         ) : filtered.length === 0 ? (
           <Paper
