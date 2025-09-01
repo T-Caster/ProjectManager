@@ -36,6 +36,7 @@ router.post("/register", upload.single("profilePic"), async (req, res) => {
     const user = await User.create({ fullName, email, idNumber, password: hashedPassword, profilePic, phoneNumber });
     res.status(201).json({ message: "User registered" });
   } catch (err) {
+    console.error(err);
     res.status(500).json({ error: "Server error" });
   }
 });
@@ -50,6 +51,7 @@ router.post("/login", async (req, res) => {
     const token = jwt.sign({ id: user._id }, process.env.JWT_SECRET, { expiresIn: "1d" });
     res.json({ token });
   } catch (err) {
+    console.error(err);
     res.status(500).json({ error: "Server error" });
   }
 });
@@ -99,6 +101,7 @@ router.get("/reset-password/:token", async (req, res) => {
 
     res.json({ message: "Token is valid." });
   } catch (err) {
+    console.error(err);
     res.status(500).json({ error: "Server error" });
   }
 });
@@ -123,6 +126,7 @@ router.post("/reset-password/:token", async (req, res) => {
 
     res.json({ message: "Password has been updated." });
   } catch (err) {
+    console.error(err);
     res.status(500).json({ error: "Server error" });
   }
 });
@@ -140,10 +144,11 @@ router.delete("/delete-user", authMiddleware, async (req, res) => {
 // Get current user info (without sensitive data)
 router.get("/me", authMiddleware, async (req, res) => {
   try {
-    const user = await User.findById(req.user.id).populate("mentor", "fullName").populate("project").select("-password -recoveryCode -resetPasswordToken -resetPasswordExpires");
+    const user = await User.findById(req.user.id).populate("mentor", "fullName profilePic").populate("project").select("-password -recoveryCode -resetPasswordToken -resetPasswordExpires");
     if (!user) return res.status(404).json({ error: "User not found" });
     res.json(user);
   } catch (err) {
+    console.error(err);
     res.status(500).json({ error: "Server error" });
   }
 });
@@ -211,7 +216,7 @@ router.put("/edit-profile", authMiddleware, async (req, res) => {
 router.get("/user/:id", authMiddleware, async (req, res) => {
   try {
     const requestingUser = await User.findById(req.user.id);
-    const targetUser = await User.findById(req.params.id).populate('mentor', 'fullName').select("-password -recoveryCode -resetPasswordToken -resetPasswordExpires");
+    const targetUser = await User.findById(req.params.id).populate('mentor', 'fullName profilePic').select("-password -recoveryCode -resetPasswordToken -resetPasswordExpires");
 
     if (!targetUser) {
       return res.status(404).json({ error: "User not found" });
@@ -229,6 +234,7 @@ router.get("/user/:id", authMiddleware, async (req, res) => {
     delete userObject.idNumber;
     res.json(userObject);
   } catch (err) {
+    console.error(err);
     res.status(500).json({ error: "Server error" });
   }
 });

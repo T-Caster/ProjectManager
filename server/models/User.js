@@ -28,7 +28,7 @@ userSchema.set('toJSON', {
 
     // Prepend server URL to profilePic
     if (ret.profilePic) {
-      const serverUrl = process.env.SERVER_URL || 'http://localhost:3000';
+      const serverUrl = `${process.env.SERVER_URL}:${process.env.PORT}`;
       const picPath = ret.profilePic.replace(/\\/g, '/');
       ret.profilePic = `${serverUrl}/${picPath}`;
     }

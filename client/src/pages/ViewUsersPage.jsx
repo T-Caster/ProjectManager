@@ -69,7 +69,7 @@ const ViewUsersPage = () => {
       });
     };
     socket.on('userUpdated', handleUserUpdate);
-    return () => socket.off('userUpdated', handleUserUpdate);
+    return () => socket?.off('userUpdated', handleUserUpdate);
   }, []);
 
   // mentors list + map
