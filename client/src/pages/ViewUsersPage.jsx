@@ -1,4 +1,3 @@
-// pages/ViewUsersPage.jsx
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import {
   Box,
@@ -13,10 +12,13 @@ import {
   ToggleButton,
   ToggleButtonGroup,
   useTheme,
+  CardActions,
 } from '@mui/material';
 import RefreshIcon from '@mui/icons-material/Refresh';
 import { getUsers, updateUser } from '../services/hodService';
 import EditUserDialog from '../components/EditUserDialog';
+import LaunchIcon from '@mui/icons-material/Launch';
+import { Link } from 'react-router-dom';
 import { socket } from '../services/socketService';
 import { useAuthUser } from '../contexts/AuthUserContext';
 
@@ -63,7 +65,7 @@ const ViewUsersPage = () => {
     return () => socket.off('userUpdated', handleUserUpdate);
   }, []);
 
-  // Header counts (like Tasks/Meetings chips)
+  // Header counts
   const counts = useMemo(() => {
     const all = users.length;
     const student = users.filter((u) => u.role === 'student').length;
@@ -96,11 +98,13 @@ const ViewUsersPage = () => {
 
   // onSave should return a promise (awaited in the dialog)
   const handleSaveChanges = async (updatedUser) => {
+    const isSelf = String(updatedUser._id) === String(currentUser?._id);
     const payload = {
       email: updatedUser.email,
       idNumber: updatedUser.idNumber,
       fullName: updatedUser.fullName,
-      role: updatedUser.role,
+      // If I'm a HOD editing myself, force role to remain 'hod'
+      role: isSelf && currentUser?.role === 'hod' ? 'hod' : updatedUser.role,
     };
     return updateUser(updatedUser._id, payload);
   };
@@ -162,9 +166,9 @@ const ViewUsersPage = () => {
 
         <Divider sx={{ my: 2 }} />
 
-        {/* Filters row (compact like Tasks/Meetings) */}
+        {/* Filters row */}
         <Grid container spacing={1.5} alignItems="flex-end">
-          <Grid item size={{xs:12, md:10}}>
+          <Grid item size={{ xs: 12, md: 10 }}>
             <TextField
               size="small"
               fullWidth
@@ -181,7 +185,7 @@ const ViewUsersPage = () => {
       {/* Cards grid */}
       <Grid container spacing={3}>
         {filteredUsers.map((u) => (
-          <Grid item size={{xs: 12, sm: 6, md: 4}} key={u._id}>
+          <Grid item size={{ xs: 12, sm: 6, md: 4 }} key={u._id}>
             <Paper
               elevation={2}
               sx={{
@@ -214,22 +218,43 @@ const ViewUsersPage = () => {
                     u.role === 'hod'
                       ? theme.palette.success.light
                       : u.role === 'mentor'
-                      ? theme.palette.info.light
-                      : theme.palette.grey[200],
+                        ? theme.palette.info.light
+                        : theme.palette.grey[200],
                 }}
               >
                 Role: {u.role}
               </Typography>
-
-              <Box sx={{ mt: 'auto' }}>
+              <CardActions
+                sx={{
+                  mt: 'auto',
+                  p: 0,
+                  pt: 1,
+                  display: 'flex',
+                  justifyContent: 'space-between',
+                  alignItems: 'center',
+                  gap: 1, // keeps spacing tidy if text wraps
+                }}
+              >
                 <Button
+                  size="small"
+                  variant="text"
+                  endIcon={<LaunchIcon />}
+                  component={Link}
+                  to={`/profile/${u._id}`}
+                  sx={{ minWidth: 0, px: 0, whiteSpace: 'nowrap' }}
+                >
+                  View Profile
+                </Button>
+
+                <Button
+                  size="small"
                   variant="contained"
                   onClick={() => handleEditClick(u)}
-                  sx={{ mt: 1 }}
                 >
                   Edit
                 </Button>
-              </Box>
+              </CardActions>
+
             </Paper>
           </Grid>
         ))}

@@ -68,11 +68,17 @@ export default function ProfilePage() {
   const [profilePicPreview, setProfilePicPreview] = useState(null);
   const [pendingRemovePic, setPendingRemovePic] = useState(false);
 
+  useEffect(() => {
+  if (id && authUser?._id && id === authUser._id) {
+    navigate('/profile', { replace: true });
+  }
+}, [id, authUser?._id, navigate]);
+
   // Fetch user
   useEffect(() => {
     (async () => {
       try {
-        const userData = id ? await getUserById(id) : await getCurrentUser();
+        const userData = (id) ? await getUserById(id) : await getCurrentUser();
         setUser(userData);
         setForm({
           fullName: userData.fullName || "",

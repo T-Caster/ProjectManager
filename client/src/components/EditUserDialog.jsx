@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import {
   Dialog,
   DialogTitle,
@@ -10,14 +10,20 @@ import {
   MenuItem,
   FormControl,
   InputLabel,
+  FormHelperText,
 } from '@mui/material';
 
-const EditUserDialog = ({ open, onClose, user, onSave }) => {
+const EditUserDialog = ({ open, onClose, user, onSave, currentUserId }) => {
   const [editedUser, setEditedUser] = useState(user);
 
   useEffect(() => {
     setEditedUser(user);
   }, [user]);
+
+  const isSelfHod = useMemo(() => {
+    if (!editedUser) return false;
+    return String(editedUser._id) === String(currentUserId) && editedUser.role === 'hod';
+  }, [editedUser, currentUserId]);
 
   const handleChange = (e) => {
     const { name, value } = e.target;
@@ -28,8 +34,10 @@ const EditUserDialog = ({ open, onClose, user, onSave }) => {
     onSave(editedUser);
   };
 
+  if (!editedUser) return null;
+
   return (
-    <Dialog open={open} onClose={onClose}>
+    <Dialog open={open} onClose={onClose} fullWidth maxWidth="sm">
       <DialogTitle>Edit User</DialogTitle>
       <DialogContent>
         <TextField
@@ -38,7 +46,7 @@ const EditUserDialog = ({ open, onClose, user, onSave }) => {
           type="email"
           fullWidth
           name="email"
-          value={editedUser.email}
+          value={editedUser.email || ''}
           onChange={handleChange}
         />
         <TextField
@@ -47,26 +55,31 @@ const EditUserDialog = ({ open, onClose, user, onSave }) => {
           type="text"
           fullWidth
           name="idNumber"
-          value={editedUser.idNumber}
+          value={editedUser.idNumber || ''}
           onChange={handleChange}
         />
-        <FormControl fullWidth margin="dense">
+        <FormControl fullWidth margin="dense" disabled={isSelfHod}>
           <InputLabel>Role</InputLabel>
           <Select
             name="role"
-            value={editedUser.role}
-            onChange={handleChange}
+            value={editedUser.role || ''}
             label="Role"
+            onChange={handleChange}
           >
             <MenuItem value="student">Student</MenuItem>
             <MenuItem value="mentor">Mentor</MenuItem>
             <MenuItem value="hod">HOD</MenuItem>
           </Select>
+          {isSelfHod && (
+            <FormHelperText error>
+              HODs cannot change their own role.
+            </FormHelperText>
+          )}
         </FormControl>
       </DialogContent>
       <DialogActions>
-        <Button onClick={onClose}>Cancel</Button>
-        <Button onClick={handleSave}>Save</Button>
+        <Button onClick={onClose} color="inherit">Cancel</Button>
+        <Button onClick={handleSave} variant="contained">Save</Button>
       </DialogActions>
     </Dialog>
   );
