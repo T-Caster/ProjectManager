@@ -43,10 +43,9 @@ const MentorDashboard = () => {
 
   const totalMyProjects = mentorProjects.length;
   const totalUpcoming = useMemo(() => {
-    const now = new Date();
     return (meetings || []).filter((m) => {
-      const when = new Date(m.when || m.date);
-      return m.status === 'accepted' && when > now;
+      console.log(m.status)
+      return m.status === 'accepted'
     }).length;
   }, [meetings]);
   const totalPending = (meetings || []).filter((m) => m.status === 'pending').length;
