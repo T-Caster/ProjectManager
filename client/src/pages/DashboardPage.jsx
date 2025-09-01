@@ -1,32 +1,36 @@
 import React from 'react';
-import { Typography, Paper, Box, Link } from '@mui/material';
-import { Link as RouterLink } from 'react-router-dom';
+import { Typography, Box, CircularProgress } from '@mui/material';
 import { useAuthUser } from '../contexts/AuthUserContext';
+import StudentDashboard from './dashboards/StudentDashboard';
+import MentorDashboard from './dashboards/MentorDashboard';
+import HodDashboard from './dashboards/HodDashboard';
 
 const DashboardPage = () => {
-  const { user } = useAuthUser();
+  const { user, loading } = useAuthUser();
+
+  const renderDashboard = () => {
+    if (loading) {
+      return <CircularProgress />;
+    }
+
+    switch (user?.role) {
+      case 'student':
+        return <StudentDashboard />;
+      case 'mentor':
+        return <MentorDashboard />;
+      case 'hod':
+        return <HodDashboard />;
+      default:
+        return <Typography>Unknown user role. Please contact support.</Typography>;
+    }
+  };
 
   return (
     <Box>
       <Typography variant="h4" component="h1" gutterBottom>
         Welcome, {user?.fullName || 'User'}!
       </Typography>
-      <Typography>
-        This is your dashboard. You can use the sidebar to navigate to different parts of the application.
-      </Typography>
-
-      {user?.role === 'student' && user.mentor && (
-        <Paper sx={{ p: 2, mt: 3 }}>
-          <Typography variant="h6">Your Mentor</Typography>
-          <Typography>
-            You are being mentored by{' '}
-            <Link component={RouterLink} to={`/profile/${user.mentor._id}`}>
-              {user.mentor.fullName}
-            </Link>
-            .
-          </Typography>
-        </Paper>
-      )}
+      {renderDashboard()}
     </Box>
   );
 };

@@ -13,7 +13,6 @@ import {
   InputAdornment,
   IconButton,
   CircularProgress,
-  Grid,
   Button,
 } from '@mui/material';
 import RefreshIcon from '@mui/icons-material/Refresh';
@@ -21,7 +20,7 @@ import SearchIcon from '@mui/icons-material/Search';
 import EventAvailableIcon from '@mui/icons-material/EventAvailable';
 import { useProjects } from '../contexts/ProjectContext';
 import { AuthUserContext } from '../contexts/AuthUserContext';
-import ProjectCard from '../components/ProjectCard';
+import ProjectsGrid from '../components/ProjectsGrid';
 
 const STATUS_KEYS = ['proposal', 'specification', 'code', 'presentation', 'done'];
 const STATUS_LABELS = {
@@ -43,8 +42,7 @@ const ProjectsPage = () => {
   const { user } = useContext(AuthUserContext);
   const { projects, loading, error, refetchProjects } = useProjects();
 
-  // ---- local UI state (declare BEFORE any conditional returns) ----
-  const [statusFilter, setStatusFilter] = useState('all'); // all | proposal | specification | code | presentation | done
+  const [statusFilter, setStatusFilter] = useState('all');
   const [query, setQuery] = useState('');
 
   const safeProjects = Array.isArray(projects) ? projects : [];
@@ -79,12 +77,10 @@ const ProjectsPage = () => {
     return list;
   }, [safeProjects, statusFilter, query]);
 
-  // ---- render-time routing for students (no early-hook returns, no useEffect navigate) ----
   if (user?.role === 'student') {
     const pid = user?.project?._id;
     if (pid) return <Navigate to={`/projects/${pid}`} replace />;
 
-    // Student with NO approved project yet -> informative state (not a spinner)
     return (
       <Container maxWidth="sm" sx={{ py: 8 }}>
         <Paper
@@ -119,7 +115,6 @@ const ProjectsPage = () => {
     );
   }
 
-  // ---- default (mentor / hod) listing ----
   return (
     <Container maxWidth="lg" sx={{ py: 4 }}>
       <Paper
@@ -132,7 +127,6 @@ const ProjectsPage = () => {
           background: theme.palette.background.paper,
         })}
       >
-        {/* Header: title, counts, filters, search, refresh */}
         <Stack
           direction={{ xs: 'column', md: 'row' }}
           spacing={1.5}
@@ -192,48 +186,12 @@ const ProjectsPage = () => {
 
         <Divider sx={{ my: 2 }} />
 
-        {/* Content */}
-        {loading ? (
-          <Stack alignItems="center" py={6} spacing={2}>
-            <CircularProgress />
-            <Typography variant="body2" color="text.secondary">
-              Loading projects…
-            </Typography>
-          </Stack>
-        ) : error ? (
-          <Stack alignItems="center" py={6} spacing={1.5}>
-            <EventAvailableIcon color="error" sx={{ fontSize: 36 }} />
-            <Typography color="error">Failed to load projects.</Typography>
-            <Button onClick={refetchProjects} variant="outlined" size="small">
-              Try again
-            </Button>
-          </Stack>
-        ) : filtered.length === 0 ? (
-          <Paper
-            elevation={0}
-            sx={(theme) => ({
-              p: 4,
-              borderRadius: 2,
-              border: '1px dashed',
-              borderColor: 'divider',
-              textAlign: 'center',
-              background: theme.palette.background.default,
-            })}
-          >
-            <EventAvailableIcon color="primary" sx={{ fontSize: 36 }} />
-            <Typography variant="h6" color="text.secondary" sx={{ mt: 1 }}>
-              No projects match your filters.
-            </Typography>
-          </Paper>
-        ) : (
-          <Grid container spacing={2}>
-            {filtered.map((p) => (
-              <Grid key={p._id} item size={{ xs: 12, sm: 6, md: 4 }}>
-                <ProjectCard project={p} currentUserRole={user?.role} />
-              </Grid>
-            ))}
-          </Grid>
-        )}
+        <ProjectsGrid
+          projects={filtered}
+          loading={loading}
+          error={error}
+          onRefresh={refetchProjects}
+        />
       </Paper>
     </Container>
   );

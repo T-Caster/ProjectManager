@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useContext, useMemo } from 'react';
-import { useParams, Link } from 'react-router-dom';
+import { Link } from 'react-router-dom';
 import {
   Container,
   Typography,
@@ -8,16 +8,16 @@ import {
   Stack,
   Button,
 } from '@mui/material';
-import projectService from '../services/projectService';
-import { onEvent, offEvent } from '../services/socketService';
-import { AuthUserContext } from '../contexts/AuthUserContext';
-import { useProjects } from '../contexts/ProjectContext';
-import { useMeetings } from '../contexts/MeetingContext';
-import ProjectDetails from '../components/ProjectDetails';
+import projectService from '../../services/projectService';
+import { onEvent, offEvent } from '../../services/socketService';
+import { AuthUserContext } from '../../contexts/AuthUserContext';
+import { useProjects } from '../../contexts/ProjectContext';
+import { useMeetings } from '../../contexts/MeetingContext';
+import ProjectDetails from '../../components/ProjectDetails';
 
-const ProjectPage = () => {
-  const { projectId } = useParams();
+const StudentDashboard = () => {
   const { user } = useContext(AuthUserContext);
+  const projectId = user?.project?._id;
   const { updateProjectStatus } = useProjects();
   const { meetings: allMeetings, refetchMeetings } = useMeetings();
 
@@ -28,7 +28,7 @@ const ProjectPage = () => {
   const [error, setError] = useState(null);
   const [noProject, setNoProject] = useState(false);
 
-  const canEditStatus = user?.role === 'mentor' && user?._id === project?.mentor?._id;
+  const canEditStatus = false; // Students cannot edit project status
 
   const load = async () => {
     try {
@@ -63,20 +63,12 @@ const ProjectPage = () => {
   }, [allMeetings, projectId]);
 
   useEffect(() => {
-    if (user?.role === 'student' && !user?.project?._id) {
-      setNoProject(true);
-      setLoading(false);
-      setProject(null);
-      setError(null);
-    }
-  }, [user]);
-
-  useEffect(() => {
     load();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [projectId]);
 
   useEffect(() => {
+    if (!projectId) return;
     const handleProjectUpdate = (updatedProject) => {
       if (updatedProject._id === projectId) {
         setProject(updatedProject);
@@ -112,15 +104,11 @@ const ProjectPage = () => {
     return (
       <Container maxWidth="sm" sx={{ py: 6 }}>
         <Alert severity="info" sx={{ mb: 2 }}>
-          Your proposal hasn’t been approved yet, so your project page isn’t available.
-          Once it’s approved, it will appear here automatically.
+          You don't have a project yet. Once your proposal is approved, your project will appear here.
         </Alert>
         <Stack direction="row" spacing={1.5}>
-          <Button component={Link} to="/propose" variant="contained">
-            Go to Proposal
-          </Button>
-          <Button component={Link} to="/" variant="text">
-            Back to Home
+          <Button component={Link} to="/propose-project" variant="contained">
+            Propose a Project
           </Button>
         </Stack>
       </Container>
@@ -130,7 +118,7 @@ const ProjectPage = () => {
   if (error) {
     return (
       <Container maxWidth="md" sx={{ py: 4 }}>
-        <Alert severity="error">Failed to load project details. Please try again later.</Alert>
+        <Alert severity="error">Failed to load your project. Please try again later.</Alert>
       </Container>
     );
   }
@@ -158,4 +146,4 @@ const ProjectPage = () => {
   );
 };
 
-export default ProjectPage;
+export default StudentDashboard;
