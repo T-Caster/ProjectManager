@@ -16,8 +16,7 @@ import {
   Select,
   MenuItem,
   OutlinedInput,
-  FormHelperText,
-  Link as MuiLink
+  Link as MuiLink,
 } from '@mui/material';
 import RefreshIcon from '@mui/icons-material/Refresh';
 import LaunchIcon from '@mui/icons-material/Launch';
@@ -29,6 +28,7 @@ import { socket } from '../services/socketService';
 import { useAuthUser } from '../contexts/AuthUserContext';
 
 const CONTROL_HEIGHT = 40;
+const NO_MENTOR_VALUE = '__NONE__';
 
 const ViewUsersPage = () => {
   const theme = useTheme();
@@ -36,7 +36,7 @@ const ViewUsersPage = () => {
 
   const [users, setUsers] = useState([]);
   const [roleFilter, setRoleFilter] = useState('all'); // all | student | mentor | hod
-  const [mentorFilter, setMentorFilter] = useState(''); // mentor _id or ''
+  const [mentorFilter, setMentorFilter] = useState(''); // '', NO_MENTOR_VALUE, or mentor _id
   const [searchQuery, setSearchQuery] = useState('');
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [selectedUser, setSelectedUser] = useState(null);
@@ -58,10 +58,9 @@ const ViewUsersPage = () => {
     fetchUsers();
   }, [fetchUsers]);
 
-  // Real-time updates from server
+  // realtime updates
   useEffect(() => {
     if (!socket) return;
-
     const handleUserUpdate = (updatedUser) => {
       setUsers((prev) => {
         const exists = prev.some((u) => u._id === updatedUser._id);
@@ -69,16 +68,12 @@ const ViewUsersPage = () => {
         return prev.map((u) => (u._id === updatedUser._id ? updatedUser : u));
       });
     };
-
     socket.on('userUpdated', handleUserUpdate);
     return () => socket.off('userUpdated', handleUserUpdate);
   }, []);
 
-  // Mentors list + fast lookup map
-  const mentorOptions = useMemo(
-    () => users.filter((u) => u.role === 'mentor'),
-    [users]
-  );
+  // mentors list + map
+  const mentorOptions = useMemo(() => users.filter((u) => u.role === 'mentor'), [users]);
   const mentorMap = useMemo(() => {
     const map = new Map();
     mentorOptions.forEach((m) => map.set(String(m._id), m));
@@ -86,14 +81,12 @@ const ViewUsersPage = () => {
   }, [mentorOptions]);
 
   const resolveMentor = (u) => {
-    // u.mentor can be an object or an id string
     if (!u?.mentor) return null;
     if (typeof u.mentor === 'string') return mentorMap.get(String(u.mentor)) || null;
-    // object case
     return u.mentor;
   };
 
-  // Header counts
+  // header counts
   const counts = useMemo(() => {
     const all = users.length;
     const student = users.filter((u) => u.role === 'student').length;
@@ -102,10 +95,10 @@ const ViewUsersPage = () => {
     return { all, student, mentor, hod };
   }, [users]);
 
+  // filtering
   const filteredUsers = useMemo(() => {
     const q = (searchQuery || '').toLowerCase().trim();
 
-    // Which mentors' names match the query?
     const matchedMentorIds = new Set(
       q
         ? mentorOptions
@@ -117,23 +110,28 @@ const ViewUsersPage = () => {
     return users.filter((u) => {
       const roleMatch = roleFilter === 'all' ? true : u.role === roleFilter;
 
-      // Resolve mentor object/id safely
       const mRef = resolveMentor(u);
-      const mId = mRef?._id ? String(mRef._id) : typeof u.mentor === 'string' ? String(u.mentor) : '';
+      const mId = mRef?._id
+        ? String(mRef._id)
+        : typeof u.mentor === 'string'
+        ? String(u.mentor)
+        : '';
 
-      // Mentor filter: include the mentor themselves or anyone mentored by them
-      const mentorMatch =
-        !mentorFilter || String(u._id) === String(mentorFilter) || (mId && mId === String(mentorFilter));
+      // Mentor filter logic:
+      // - "" (All): no mentor constraint
+      // - NO_MENTOR_VALUE: only students with no mentor
+      // - specific mentor id: the mentor themselves OR anyone mentored by them
+      let mentorMatch = true;
+      if (mentorFilter === NO_MENTOR_VALUE) {
+        mentorMatch = u.role === 'student' && !mId; // unassigned students (no mentor)
+      } else if (mentorFilter) {
+        mentorMatch = String(u._id) === String(mentorFilter) || (mId && mId === String(mentorFilter));
+      }
 
       if (!roleMatch || !mentorMatch) return false;
 
-      // Search text across user fields + resolved mentor name
-      const hay = [
-        u.fullName || '',
-        u.email || '',
-        u.idNumber || '',
-        mRef?.fullName || '',
-      ]
+      // Text search across user fields + mentor name
+      const hay = [u.fullName || '', u.email || '', u.idNumber || '', mRef?.fullName || '']
         .map((s) => String(s).toLowerCase())
         .join(' ');
 
@@ -147,25 +145,17 @@ const ViewUsersPage = () => {
     });
   }, [users, roleFilter, mentorFilter, searchQuery, mentorOptions, mentorMap]);
 
-  const handleEditClick = (user) => {
-    setSelectedUser(user);
-    setIsEditDialogOpen(true);
-  };
-
-  const handleCloseDialog = () => {
-    setIsEditDialogOpen(false);
-    setSelectedUser(null);
-  };
-
-  // onSave should return a promise (awaited in the dialog)
+  // edit dialog plumbing
+  const handleEditClick = (user) => { setSelectedUser(user); setIsEditDialogOpen(true); };
+  const handleCloseDialog = () => { setIsEditDialogOpen(false); setSelectedUser(null); };
+  const { user: authUser } = useAuthUser();
   const handleSaveChanges = async (updatedUser) => {
-    const isSelf = String(updatedUser._id) === String(currentUser?._id);
+    const isSelf = String(updatedUser._id) === String(authUser?._id);
     const payload = {
       email: updatedUser.email,
       idNumber: updatedUser.idNumber,
       fullName: updatedUser.fullName,
-      // HODs can't demote themselves
-      role: isSelf && currentUser?.role === 'hod' ? 'hod' : updatedUser.role,
+      role: isSelf && authUser?.role === 'hod' ? 'hod' : updatedUser.role,
     };
     return updateUser(updatedUser._id, payload);
   };
@@ -183,7 +173,7 @@ const ViewUsersPage = () => {
           mb: 3,
         }}
       >
-        {/* Header row */}
+        {/* Header */}
         <Stack
           direction={{ xs: 'column', md: 'row' }}
           spacing={1.5}
@@ -213,13 +203,7 @@ const ViewUsersPage = () => {
               <ToggleButton value="hod">HODs</ToggleButton>
             </ToggleButtonGroup>
 
-            <Button
-              onClick={fetchUsers}
-              startIcon={<RefreshIcon />}
-              size="small"
-              disabled={loading}
-              variant="outlined"
-            >
+            <Button onClick={fetchUsers} startIcon={<RefreshIcon />} size="small" disabled={loading} variant="outlined">
               {loading ? 'Refreshing…' : 'Refresh'}
             </Button>
           </Stack>
@@ -245,7 +229,6 @@ const ViewUsersPage = () => {
                 placeholder="Type to filter…"
                 inputProps={{ 'aria-label': 'search users' }}
               />
-              <FormHelperText sx={{ minHeight: 20, visibility: 'hidden' }}>&nbsp;</FormHelperText>
             </FormControl>
           </Grid>
 
@@ -263,30 +246,34 @@ const ViewUsersPage = () => {
                 value={mentorFilter}
                 onChange={(e) => setMentorFilter(e.target.value)}
                 displayEmpty
-                renderValue={(val) =>
-                  val ? (mentorOptions.find((m) => String(m._id) === String(val))?.fullName || 'Mentor') : 'All'
-                }
+                renderValue={(val) => {
+                  if (!val) return 'All';
+                  if (val === NO_MENTOR_VALUE) return 'No mentor';
+                  return mentorOptions.find((m) => String(m._id) === String(val))?.fullName || 'Mentor';
+                }}
               >
-                <MenuItem value="">
-                  <em>All</em>
-                </MenuItem>
+                <MenuItem value=""><em>All</em></MenuItem>
+                <MenuItem value={NO_MENTOR_VALUE}>No mentor</MenuItem>
                 {mentorOptions.map((m) => (
                   <MenuItem key={m._id} value={m._id}>
                     {m.fullName || 'Unnamed Mentor'}
                   </MenuItem>
                 ))}
               </Select>
-              <FormHelperText sx={{ minHeight: 20, visibility: 'hidden' }}>&nbsp;</FormHelperText>
             </FormControl>
           </Grid>
         </Grid>
       </Paper>
 
-      {/* Cards grid */}
+      {/* Cards */}
       <Grid container spacing={3}>
         {filteredUsers.map((u) => {
-          const mRef = resolveMentor(u); // handle id vs object
-          const mentorIdForLink = mRef?._id ? String(mRef._id) : typeof u.mentor === 'string' ? String(u.mentor) : '';
+          const mRef = resolveMentor(u);
+          const mentorIdForLink = mRef?._id
+            ? String(mRef._id)
+            : typeof u.mentor === 'string'
+              ? String(u.mentor)
+              : '';
 
           return (
             <Grid item size={{ xs: 12, sm: 6, md: 4 }} key={u._id}>
@@ -311,18 +298,27 @@ const ViewUsersPage = () => {
                   ID: {u.idNumber || '—'}
                 </Typography>
 
-                {(mRef?.fullName || mentorIdForLink) && (
+                {(mRef?.fullName || mentorIdForLink) ? (
                   <Typography variant="body2" color="text.secondary">
                     Mentor:{' '}
-
                     {mentorIdForLink ? (
-                      <MuiLink component={Link} to={mentorIdForLink === String(currentUser?._id) ? '/profile' : `/profile/${mentorIdForLink}`} underline="hover">
+                      <MuiLink
+                        component={Link}
+                        to={mentorIdForLink === String(currentUser?._id) ? '/profile' : `/profile/${mentorIdForLink}`}
+                        underline="hover"
+                      >
                         {mRef?.fullName || 'View mentor'}
                       </MuiLink>
                     ) : (
                       mRef?.fullName
                     )}
                   </Typography>
+                ) : (
+                  (u.role === 'student' && (
+                    <Typography variant="body2" color="text.secondary">
+                      Not Assigned to project
+                    </Typography>
+                  ))
                 )}
 
                 <Typography
@@ -337,8 +333,8 @@ const ViewUsersPage = () => {
                       u.role === 'hod'
                         ? theme.palette.success.light
                         : u.role === 'mentor'
-                        ? theme.palette.info.light
-                        : theme.palette.grey[200],
+                          ? theme.palette.info.light
+                          : theme.palette.grey[200],
                   }}
                 >
                   Role: {u.role}
@@ -366,7 +362,7 @@ const ViewUsersPage = () => {
                     View Profile
                   </Button>
 
-                  <Button size="small" variant="contained" onClick={() => handleEditClick(u)}>
+                  <Button size="small" variant="contained" onClick={() => setIsEditDialogOpen(true) || setSelectedUser(u)}>
                     Edit
                   </Button>
                 </CardActions>
@@ -379,9 +375,9 @@ const ViewUsersPage = () => {
       {selectedUser && (
         <EditUserDialog
           open={isEditDialogOpen}
-          onClose={handleCloseDialog}
+          onClose={() => { setIsEditDialogOpen(false); setSelectedUser(null); }}
           user={selectedUser}
-          onSave={handleSaveChanges}
+          onSave={async (u) => handleSaveChanges(u)}
           currentUserId={currentUser?._id}
         />
       )}
