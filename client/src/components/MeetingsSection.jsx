@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState, useContext } from 'react';
 import {
   Paper,
   Stack,
@@ -17,27 +17,36 @@ import FilterListIcon from '@mui/icons-material/FilterList';
 import EventAvailableIcon from '@mui/icons-material/EventAvailable';
 import MeetingCard from './MeetingCard';
 import { useTasks } from '../contexts/TaskContext';
+import { useMeetings } from '../contexts/MeetingContext';
+import { AuthUserContext } from '../contexts/AuthUserContext';
+
 
 const MeetingsSection = ({
   title,
-  meetings = [],
-  loading = false,
-  refreshing = false,
-  onRefresh,
-  filter,
-  onFilterChange,
-  // MeetingCard props
-  role,
-  currentUserId,
-  onApprove,
-  onDecline,
-  onStudentApprove,
-  onStudentDecline,
-  onReschedule,
+  projectId, // optional project ID to filter meetings
   // Custom empty state text
   emptyStateTitle,
   emptyStateMessage,
 }) => {
+  const { user } = useContext(AuthUserContext);
+  const {
+    meetings: allMeetings,
+    loading,
+    refetchMeetings,
+    approveMeeting,
+    declineMeeting,
+    studentApproveMeeting,
+    studentDeclineMeeting,
+    postponeMeeting,
+  } = useMeetings();
+
+  const [filter, setFilter] = useState('all');
+
+  const meetings = useMemo(() => {
+    const base = projectId ? allMeetings.filter((m) => m.project?._id === projectId) : allMeetings;
+    return base;
+  }, [allMeetings, projectId]);
+
   const counts = useMemo(() => {
     const base = { all: meetings.length, pending: 0, accepted: 0, rejected: 0, held: 0, expired: 0 };
     meetings.forEach((m) => {
@@ -116,7 +125,7 @@ const MeetingsSection = ({
           <ToggleButtonGroup
             value={filter}
             exclusive
-            onChange={(_, v) => v && onFilterChange(v)}
+            onChange={(_, v) => v && setFilter(v)}
             size="small"
             color="primary"
           >
@@ -131,17 +140,15 @@ const MeetingsSection = ({
             <ToggleButton value="rejected">Rejected</ToggleButton>
           </ToggleButtonGroup>
 
-          {onRefresh && (
-            <IconButton
-              onClick={onRefresh}
-              title="Refresh"
-              aria-label="Refresh meetings"
-              size="small"
-              disabled={refreshing}
-            >
-              {refreshing ? <CircularProgress size={18} /> : <RefreshIcon />}
-            </IconButton>
-          )}
+          <IconButton
+            onClick={refetchMeetings}
+            title="Refresh"
+            aria-label="Refresh meetings"
+            size="small"
+            disabled={loading}
+          >
+            {loading ? <CircularProgress size={18} /> : <RefreshIcon />}
+          </IconButton>
         </Stack>
       </Stack>
 
@@ -175,26 +182,24 @@ const MeetingsSection = ({
                 {emptyStateMessage}
               </Typography>
             )}
-            {onRefresh && (
-              <Button sx={{ mt: 2 }} variant="outlined" onClick={onRefresh} disabled={refreshing}>
-                Refresh
-              </Button>
-            )}
+            <Button sx={{ mt: 2 }} variant="outlined" onClick={refetchMeetings} disabled={loading}>
+              Refresh
+            </Button>
           </Stack>
         </Paper>
       ) : (
         <Grid container spacing={2}>
           {filteredMeetings.map((meeting) => (
-            <Grid item size={{xs: 12, sm: 6, md: 4}} key={meeting._id}>
+            <Grid item xs={12} sm={6} md={4} key={meeting._id}>
               <MeetingCard
                 meeting={meeting}
-                role={role}
-                currentUserId={currentUserId}
-                onApprove={onApprove ? () => onApprove(meeting._id) : undefined}
-                onDecline={onDecline ? () => onDecline(meeting._id) : undefined}
-                onStudentApprove={onStudentApprove ? () => onStudentApprove(meeting._id) : undefined}
-                onStudentDecline={onStudentDecline ? () => onStudentDecline(meeting._id) : undefined}
-                onReschedule={onReschedule ? (payload) => onReschedule(meeting._id, payload) : undefined}
+                role={user.role}
+                currentUserId={user?._id}
+                onApprove={() => approveMeeting(meeting._id)}
+                onDecline={() => declineMeeting(meeting._id)}
+                onStudentApprove={() => studentApproveMeeting(meeting._id)}
+                onStudentDecline={() => studentDeclineMeeting(meeting._id)}
+                onReschedule={(payload) => postponeMeeting(meeting._id, payload)}
                 tasksCount={taskCounts[meeting._id]}
               />
             </Grid>

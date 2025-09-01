@@ -35,26 +35,20 @@ const MentorDashboard = () => {
   const { meetings, loading: meetingsLoading, refetchMeetings } = useMeetings();
   const { projects, loading: projectsLoading, refetchProjects } = useProjects();
 
-  // Default meetings filter -> all
-  const [meetingFilter, setMeetingFilter] = useState('all');
-
   // My projects only
   const mentorProjects = useMemo(
     () => (projects || []).filter((p) => p.mentor?._id === user?._id),
     [projects, user]
   );
 
-  // Upcoming (accepted + future)
-  const upcomingMeetings = useMemo(() => {
+  const totalMyProjects = mentorProjects.length;
+  const totalUpcoming = useMemo(() => {
     const now = new Date();
     return (meetings || []).filter((m) => {
       const when = new Date(m.when || m.date);
       return m.status === 'accepted' && when > now;
-    });
+    }).length;
   }, [meetings]);
-
-  const totalMyProjects = mentorProjects.length;
-  const totalUpcoming = upcomingMeetings.length;
   const totalPending = (meetings || []).filter((m) => m.status === 'pending').length;
   const anyLoading = meetingsLoading || projectsLoading;
 
@@ -62,7 +56,7 @@ const MentorDashboard = () => {
     <Container maxWidth="lg" sx={{ py: 4 }}>
       <Grid container spacing={3}>
         {/* Row 1: Header/KPIs (wide) + Project Status chart (compact) */}
-        <Grid item size={{ xs: 12, md: 8 }}>
+        <Grid item xs={12} md={8}>
           <Card
             elevation={0}
             sx={(t) => ({
@@ -105,7 +99,7 @@ const MentorDashboard = () => {
               </Stack>
 
               <Grid container spacing={1.5} sx={{ mt: 1 }}>
-                <Grid item size={{ xs: 12 }}>
+                <Grid item xs={12}>
                   <KpiCard
                     icon={<FolderSpecialIcon />}
                     label="My Projects"
@@ -114,7 +108,7 @@ const MentorDashboard = () => {
                     to="/projects"
                   />
                 </Grid>
-                <Grid item size={{ xs: 6 }}>
+                <Grid item xs={6}>
                   <KpiCard
                     icon={<CalendarMonthIcon />}
                     label="Upcoming"
@@ -123,7 +117,7 @@ const MentorDashboard = () => {
                     to="/meetings"
                   />
                 </Grid>
-                <Grid item size={{ xs: 6 }}>
+                <Grid item xs={6}>
                   <KpiCard
                     icon={<PendingActionsIcon />}
                     label="Pending"
@@ -137,7 +131,7 @@ const MentorDashboard = () => {
           </Card>
         </Grid>
 
-        <Grid item size={{ xs: 12, md: 4 }}>
+        <Grid item xs={12} md={4}>
           <Card elevation={0} sx={{ borderRadius: 3, border: '1px solid', borderColor: 'divider', height: '100%' }}>
             <CardHeader
               title={
@@ -162,20 +156,14 @@ const MentorDashboard = () => {
         </Grid>
 
         {/* Row 2: Upcoming Meetings (full width) */}
-        <Grid item size={{ xs: 12 }}>
+        <Grid item xs={12}>
           <Card elevation={0} sx={{ borderRadius: 3, border: '1px solid', borderColor: 'divider' }}>
             <CardHeader
               title={
                 <Stack direction="row" alignItems="center" spacing={1}>
                   <CalendarMonthIcon fontSize="small" />
-                  <Typography variant="h6">Upcoming Meetings</Typography>
-                  <Chip size="small" variant="outlined" label={totalUpcoming} />
+                  <Typography variant="h6">My Meetings</Typography>
                 </Stack>
-              }
-              action={
-                <IconButton title="Refresh" onClick={refetchMeetings}>
-                  {meetingsLoading ? <CircularProgress size={18} /> : <RefreshIcon />}
-                </IconButton>
               }
               sx={{ pb: 1 }}
             />
@@ -183,22 +171,15 @@ const MentorDashboard = () => {
             <CardContent sx={{ pt: 2 }}>
               <MeetingsSection
                 title=""
-                meetings={upcomingMeetings}
-                loading={meetingsLoading}
-                onRefresh={refetchMeetings}
-                filter={meetingFilter}          // default "all"
-                onFilterChange={setMeetingFilter}
-                role={user.role}
-                currentUserId={user._id}
-                emptyStateTitle="No upcoming meetings."
-                emptyStateMessage="Scheduled meetings will appear here."
+                emptyStateTitle="No meetings found."
+                emptyStateMessage="Your meetings will appear here."
               />
             </CardContent>
           </Card>
         </Grid>
 
         {/* Row 3: My Projects (full width) */}
-        <Grid item size={{ xs: 12 }}>
+        <Grid item xs={12}>
           <Card elevation={0} sx={{ borderRadius: 3, border: '1px solid', borderColor: 'divider' }}>
             <CardHeader
               title={
