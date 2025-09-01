@@ -1,5 +1,5 @@
 import React from 'react';
-import { Typography, Box, CircularProgress } from '@mui/material';
+import { Typography, Box, CircularProgress, Divider } from '@mui/material';
 import { useAuthUser } from '../contexts/AuthUserContext';
 import StudentDashboard from './dashboards/StudentDashboard';
 import MentorDashboard from './dashboards/MentorDashboard';
@@ -30,6 +30,7 @@ const DashboardPage = () => {
       <Typography variant="h4" component="h1" gutterBottom>
         Welcome, {user?.fullName || 'User'}!
       </Typography>
+      <Divider sx={{ my: 2 }} />
       {renderDashboard()}
     </Box>
   );

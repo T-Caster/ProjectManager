@@ -139,7 +139,7 @@ const CreateTaskDialog = React.memo(function CreateTaskDialog({
             </TextField>
 
             <Grid container spacing={2}>
-              <Grid item xs={12} md={6}>
+              <Grid item size={{xs: 12, md: 6}}>
                 <TextField
                   label="Title"
                   fullWidth
@@ -149,7 +149,7 @@ const CreateTaskDialog = React.memo(function CreateTaskDialog({
                   helperText={tried && !titleRef.current?.value?.trim() ? 'Title is required' : '\u00A0'}
                 />
               </Grid>
-              <Grid item xs={12} md={6}>
+              <Grid item size={{xs: 12, md: 6}}>
                 <DateTimePicker
                   label="Due date"
                   value={due}
@@ -425,7 +425,7 @@ const TasksPage = () => {
         <LocalizationProvider dateAdapter={AdapterDayjs}>
           <Grid container spacing={1.5} alignItems="flex-end">
             {isMentor && (
-              <Grid item xs={12} md={cols.project}>
+              <Grid item size={{xs: 12, md: cols.project}}>
                 <TextField
                   select
                   size="small"
@@ -447,7 +447,7 @@ const TasksPage = () => {
               </Grid>
             )}
 
-            <Grid item xs={12} md={cols.meeting}>
+            <Grid item size={{xs: 12, md: cols.meeting}}>
               <TextField
                 select
                 size="small"
@@ -475,7 +475,7 @@ const TasksPage = () => {
               </TextField>
             </Grid>
 
-            <Grid item xs={6} md={cols.from}>
+            <Grid item size={{xs: 6, md: cols.from}}>
               <DatePicker
                 label="Due from"
                 value={from}
@@ -492,7 +492,7 @@ const TasksPage = () => {
               />
             </Grid>
 
-            <Grid item xs={6} md={cols.to}>
+            <Grid item size={{xs: 6, md: cols.to}}>
               <DatePicker
                 label="Due to"
                 value={to}
