@@ -164,7 +164,7 @@ const ViewUsersPage = () => {
 
         {/* Filters row (compact like Tasks/Meetings) */}
         <Grid container spacing={1.5} alignItems="flex-end">
-          <Grid item xs={12} md={10}>
+          <Grid item size={{xs:12, md:10}}>
             <TextField
               size="small"
               fullWidth
@@ -181,7 +181,7 @@ const ViewUsersPage = () => {
       {/* Cards grid */}
       <Grid container spacing={3}>
         {filteredUsers.map((u) => (
-          <Grid item xs={12} sm={6} md={4} key={u._id}>
+          <Grid item size={{xs: 12, sm: 6, md: 4}} key={u._id}>
             <Paper
               elevation={2}
               sx={{
