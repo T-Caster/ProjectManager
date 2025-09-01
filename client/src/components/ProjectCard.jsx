@@ -159,7 +159,7 @@ const ProjectCard = ({ project, currentUserRole }) => {
             Mentor:
           </Typography>
           <Stack direction="row" spacing={1} alignItems="center" sx={{ minWidth: 0 }}>
-            <Avatar src={mentor?.avatarUrl} alt={mentor?.fullName} sx={{ width: 24, height: 24 }}>
+            <Avatar src={mentor?.profilePic} alt={mentor?.fullName} sx={{ width: 24, height: 24 }}>
               {mentor?.fullName?.[0]}
             </Avatar>
             <Typography variant="body2" noWrap>
@@ -175,7 +175,7 @@ const ProjectCard = ({ project, currentUserRole }) => {
           </Typography>
           <AvatarGroup max={4} sx={{ '& .MuiAvatar-root': { width: 26, height: 26 } }}>
             {students.map((s) => (
-              <Avatar key={s._id} src={s.avatarUrl} alt={s.fullName}>
+              <Avatar key={s._id} src={s.profilePic} alt={s.fullName}>
                 {s.fullName?.[0]}
               </Avatar>
             ))}

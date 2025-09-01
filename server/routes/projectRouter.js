@@ -6,8 +6,8 @@ const authMiddleware = require("../middleware/authMiddleware");
 const roleMiddleware = require("../middleware/roleMiddleware");
 
 const projectPopulateOptions = [
-  { path: "students", select: "fullName avatarUrl" },
-  { path: "mentor", select: "fullName avatarUrl" },
+  { path: "students", select: "fullName profilePic" },
+  { path: "mentor", select: "fullName profilePic" },
   { path: "proposal" },
 ];
 

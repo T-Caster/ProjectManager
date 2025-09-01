@@ -73,8 +73,8 @@ export const AuthUserProvider = ({ children }) => {
 
     return () => {
       if (socket) {
-        socket.off('updateProposals', handleProposalsUpdate);
-        socket.off('userUpdated', handleUserUpdate);
+        socket?.off('updateProposals', handleProposalsUpdate);
+        socket?.off('userUpdated', handleUserUpdate);
       }
     };
   }, [socket, syncUserWithoutLoading, user]);

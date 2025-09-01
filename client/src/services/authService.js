@@ -26,15 +26,7 @@ export const getCurrentUser = async () => {
     try {
         const response = await axios.get("/auth/me");
         const user = response.data;
-        if (user.profilePic) {
-            // Construct full URL for profilePic using axios baseURL
-            let baseUrl = SERVER_URL;
-            // Remove trailing slash if present
-            if (baseUrl.endsWith("/")) baseUrl = baseUrl.slice(0, -1);
-            user.profilePic = user.profilePic.startsWith("/")
-                ? baseUrl + user.profilePic
-                : baseUrl + "/" + user.profilePic;
-
+        if (user) {
             switch (user.role) {
                 case "student":
                     user.displayRole = "Student";

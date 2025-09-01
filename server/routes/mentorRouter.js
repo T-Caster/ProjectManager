@@ -15,6 +15,7 @@ router.get("/", authMiddleware, roleMiddleware(["student", "hod"]), async (req, 
     }
     res.json(mentors);
   } catch (err) {
+    console.error(err);
     res.status(500).json({ error: "Server error" });
   }
 });
@@ -41,6 +42,7 @@ router.get("/my-students", authMiddleware, roleMiddleware(["mentor", "hod"]), as
 
     res.json(students);
   } catch (err) {
+    console.error(err);
     res.status(500).json({ error: "Server error" });
   }
 });

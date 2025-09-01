@@ -76,8 +76,8 @@ export const ProposalProvider = ({ children }) => {
     return () => {
       document.removeEventListener('visibilitychange', refetchOnFocus);
       if (socket){
-        socket.off('connect', onConnect);
-        socket.off('updateProposals', handleUpdateProposals);
+        socket?.off('connect', onConnect);
+        socket?.off('updateProposals', handleUpdateProposals);
       }
     };
   }, [user, socket, fetchProposals, addOrMoveTop]);

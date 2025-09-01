@@ -92,7 +92,7 @@ const StudentCard = ({ student }) => {
 
         <CardHeader
           avatar={
-            <Avatar sx={(theme) => ({ bgcolor: inProject ? 'success.main' : 'primary.main', color: theme.palette.getContrastText(theme.palette.primary.main), fontWeight: 700 })}>
+            <Avatar src={student?.profilePic} sx={(theme) => ({ bgcolor: inProject ? 'success.main' : 'primary.main', color: theme.palette.getContrastText(theme.palette.primary.main), fontWeight: 700 })}>
               {initials(student?.fullName)}
             </Avatar>
           }

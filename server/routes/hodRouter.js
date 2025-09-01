@@ -12,6 +12,7 @@ router.get("/users", authMiddleware, roleMiddleware(["hod"]), async (req, res) =
     const users = await User.find({}).select("-password");
     res.json(users);
   } catch (err) {
+    console.error(err);
     res.status(500).json({ error: "Server error" });
   }
 });
@@ -47,6 +48,7 @@ router.put("/users/:id", authMiddleware, roleMiddleware(["hod"]), async (req, re
 
     res.json(user);
   } catch (err) {
+    console.error(err);
     res.status(500).json({ error: "Server error" });
   }
 });
@@ -54,9 +56,10 @@ router.put("/users/:id", authMiddleware, roleMiddleware(["hod"]), async (req, re
 // HOD gets all students
 router.get("/students", authMiddleware, roleMiddleware(["hod"]), async (req, res) => {
   try {
-    const students = await User.find({ role: "student" }).populate("mentor", "fullName");
+    const students = await User.find({ role: "student" }).populate("mentor", "fullName profilePic");
     res.json(students);
   } catch (err) {
+    console.error(err);
     res.status(500).json({ error: "Server error" });
   }
 });
@@ -77,6 +80,7 @@ router.put("/users/:id/role", authMiddleware, roleMiddleware(["hod"]), async (re
     }
     res.json(user);
   } catch (err) {
+    console.error(err);
     res.status(500).json({ error: "Server error" });
   }
 });

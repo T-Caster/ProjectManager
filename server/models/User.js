@@ -20,4 +20,20 @@ const userSchema = new mongoose.Schema({
   profilePic: { type: String, default: 'uploads/default.png' },
 });
 
+// Modify the toJSON method to customize the JSON output
+userSchema.set('toJSON', {
+  transform: (doc, ret) => {
+    // Do not send password hash to client
+    delete ret.password;
+
+    // Prepend server URL to profilePic
+    if (ret.profilePic) {
+      const serverUrl = `${process.env.SERVER_URL}:${process.env.PORT}`;
+      const picPath = ret.profilePic.replace(/\\/g, '/');
+      ret.profilePic = `${serverUrl}/${picPath}`;
+    }
+    return ret;
+  },
+});
+
 module.exports = mongoose.model('User', userSchema);

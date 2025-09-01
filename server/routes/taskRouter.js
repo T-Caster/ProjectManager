@@ -18,13 +18,13 @@ const populateTask = (q) =>
       path: "project",
       select: "name students mentor",
       populate: [
-        { path: "students", select: "fullName avatarUrl email" },
-        { path: "mentor", select: "fullName avatarUrl email" },
+        { path: "students", select: "fullName profilePic email" },
+        { path: "mentor", select: "fullName profilePic email" },
       ],
     })
     .populate("meeting", "proposedDate status")
-    .populate("createdBy", "fullName avatarUrl")
-    .populate("lastUpdatedBy", "fullName avatarUrl");
+    .populate("createdBy", "fullName profilePic")
+    .populate("lastUpdatedBy", "fullName profilePic");
 
 const emitToProject = (req, project, event, payload) => {
   if (!project) return;

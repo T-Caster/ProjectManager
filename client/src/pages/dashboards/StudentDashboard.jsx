@@ -298,7 +298,7 @@ const StudentDashboard = () => {
               {!!(project.students || []).length && (
                 <AvatarGroup max={6} sx={{ mt: 1 }}>
                   {(project.students || []).map((s) => (
-                    <Avatar key={s._id} src={s.avatarUrl}>{s.fullName?.[0]}</Avatar>
+                    <Avatar key={s._id} src={s.profilePic}>{s.fullName?.[0]}</Avatar>
                   ))}
                 </AvatarGroup>
               )}

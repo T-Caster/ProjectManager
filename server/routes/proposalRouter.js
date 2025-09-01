@@ -223,7 +223,7 @@ router.put("/:id/submit", authMiddleware, roleMiddleware(["student"]), async (re
 
     // (Hydrated payload kept as-is; clients listen to "updateProposals" to refresh)
     await Proposal.findById(proposal._id)
-      .populate("suggestedMentor", "fullName")
+      .populate("suggestedMentor", "fullName profilePic")
       .select("projectName status submittedAt authorSnapshot coStudentSnapshot suggestedMentor attachments createdAt updatedAt")
       .lean();
 
@@ -284,9 +284,9 @@ router.get("/my", authMiddleware, roleMiddleware(["student"]), async (req, res) 
 router.get("/queue", authMiddleware, roleMiddleware(["hod"]), async (req, res) => {
   try {
     const proposals = await Proposal.find({ status: "Pending" })
-      .populate("author", "fullName")
-      .populate("coStudent", "fullName")
-      .populate("suggestedMentor", "fullName")
+      .populate("author", "fullName profilePic")
+      .populate("coStudent", "fullName profilePic")
+      .populate("suggestedMentor", "fullName profilePic")
       .sort({ submittedAt: 1 });
     res.json(proposals);
   } catch (error) {
@@ -333,9 +333,9 @@ router.get("/file/:fileId", authMiddleware, async (req, res) => {
 router.get("/:id", authMiddleware, async (req, res) => {
   try {
     const proposal = await Proposal.findById(req.params.id)
-      .populate("author", "fullName email idNumber")
-      .populate("coStudent", "fullName email idNumber")
-      .populate("suggestedMentor", "fullName email");
+      .populate("author", "fullName email idNumber profilePic")
+      .populate("coStudent", "fullName email idNumber profilePic")
+      .populate("suggestedMentor", "fullName email profilePic");
 
     if (!proposal) return res.status(404).json({ msg: "Proposal not found" });
 

@@ -7,9 +7,9 @@ const authMiddleware = require("../middleware/authMiddleware");
 const roleMiddleware = require("../middleware/roleMiddleware");
 
 const meetingPopulateOptions = [
-  { path: "proposer", select: "fullName avatarUrl" },
-  { path: "attendees", select: "fullName avatarUrl" },
-  { path: "mentor", select: "fullName avatarUrl" },
+  { path: "proposer", select: "fullName profilePic" },
+  { path: "attendees", select: "fullName profilePic" },
+  { path: "mentor", select: "fullName profilePic" },
   { path: "project", select: "name" },
 ];
 
@@ -92,9 +92,9 @@ router.get("/:projectId", authMiddleware, async (req, res) => {
 
     // Read the meetings
     const meetings = await Meeting.find({ project: req.params.projectId }).populate([
-      { path: "proposer", select: "fullName avatarUrl" },
-      { path: "attendees", select: "fullName avatarUrl" },
-      { path: "mentor", select: "fullName avatarUrl" },
+      { path: "proposer", select: "fullName profilePic" },
+      { path: "attendees", select: "fullName profilePic" },
+      { path: "mentor", select: "fullName profilePic" },
       { path: "project", select: "name" },
     ]);
     res.json(meetings);
