@@ -3,7 +3,6 @@ import {
   Container,
   Typography,
   Paper,
-  Grid,
   CircularProgress,
   Alert,
   Stack,
@@ -38,10 +37,12 @@ const timeAgo = (d) => {
 };
 
 const CardRow = ({ label, value, icon }) => (
-  <Stack direction="row" spacing={1} alignItems="center">
+  <Stack direction="row" spacing={1} alignItems="center" minWidth={0}>
     {icon}
     <Typography variant="body2" color="text.secondary">{label}:</Typography>
-    <Typography variant="body2">{value || '—'}</Typography>
+    <Typography variant="body2" noWrap title={value || '—'}>
+      {value || '—'}
+    </Typography>
   </Stack>
 );
 
@@ -52,7 +53,6 @@ const ProposalsQueuePage = () => {
   const [query, setQuery] = useState('');
 
   useEffect(() => {
-    // ensure fresh data whenever this page mounts/returns
     refreshProposals();
   }, [refreshProposals]);
 
@@ -60,10 +60,9 @@ const ProposalsQueuePage = () => {
     const q = query.trim().toLowerCase();
     const list = Array.isArray(pendingProposals) ? pendingProposals : [];
     const sorted = [...list].sort((a, b) => {
-      // Oldest first (so HOD handles earlier items)
       const as = new Date(a.submittedAt || a.createdAt || 0).getTime();
       const bs = new Date(b.submittedAt || b.createdAt || 0).getTime();
-      return as - bs;
+      return as - bs; // oldest first
     });
     if (!q) return sorted;
     return sorted.filter((p) => {
@@ -89,17 +88,27 @@ const ProposalsQueuePage = () => {
 
   return (
     <Container maxWidth="lg" sx={{ py: 4 }}>
-      <Paper elevation={0} sx={{ p: 3, borderRadius: 3, bgcolor: 'background.paper' }}>
+      <Paper
+        elevation={0}
+        sx={(t) => ({
+          p: 3,
+          borderRadius: 3,
+          bgcolor: 'background.paper',
+          border: '1px solid',
+          borderColor: 'divider',
+        })}
+      >
         {/* Header */}
-        <Stack direction={{ xs: 'column', sm: 'row' }} justifyContent="space-between" alignItems={{ xs: 'flex-start', sm: 'center' }} spacing={2} sx={{ mb: 2 }}>
-          <Stack direction="row" spacing={1} alignItems="center">
+        <Stack
+          direction={{ xs: 'column', sm: 'row' }}
+          justifyContent="space-between"
+          alignItems={{ xs: 'flex-start', sm: 'center' }}
+          spacing={2}
+          sx={{ mb: 2 }}
+        >
+          <Stack direction="row" spacing={1} alignItems="center" flexWrap="wrap">
             <Typography variant="h4">Pending Proposals</Typography>
-            <Chip
-              label={`${filtered.length}`}
-              size="small"
-              color="primary"
-              sx={{ ml: 1, fontWeight: 600 }}
-            />
+            <Chip label={`${filtered.length}`} size="small" color="primary" sx={{ ml: 0.5, fontWeight: 600 }} />
           </Stack>
 
           <Stack direction="row" spacing={1} alignItems="center" width={{ xs: '100%', sm: 'auto' }}>
@@ -131,7 +140,16 @@ const ProposalsQueuePage = () => {
         {filtered.length === 0 ? (
           <Alert severity="info">There are no pending proposals at the moment.</Alert>
         ) : (
-          <Grid container spacing={2}>
+          // Responsive grid (no overlap, graceful wrap)
+          <Box
+            sx={(t) => ({
+              display: 'grid',
+              gap: 2,
+              gridTemplateColumns: '1fr',
+              [t.breakpoints.up('sm')]: 'grid-template-columns: repeat(auto-fill, minmax(320px, 1fr))',
+              [t.breakpoints.up('md')]: 'grid-template-columns: repeat(auto-fill, minmax(360px, 1fr))',
+            })}
+          >
             {filtered.map((p) => {
               const author = p.authorSnapshot?.fullName ?? '—';
               const co = p.coStudentSnapshot?.fullName ?? '';
@@ -140,58 +158,68 @@ const ProposalsQueuePage = () => {
               const hasPdf = (p.attachments?.length || 0) > 0;
 
               return (
-                <Grid key={p._id} size={{ xs: 12, md: 6 }}>
-                  <Paper
-                    onClick={() => navigate(`/proposal-review/${p._id}`)}
-                    elevation={1}
-                    sx={{
-                      p: 2.5,
-                      borderRadius: 3,
-                      cursor: 'pointer',
-                      transition: 'all .15s ease',
-                      border: '1px solid',
-                      borderColor: 'divider',
-                      '&:hover': {
-                        boxShadow: '0px 10px 25px rgba(0,0,0,0.06)',
-                        borderColor: 'primary.light',
-                        transform: 'translateY(-1px)',
-                      },
-                    }}
-                  >
-                    <Stack spacing={1.2}>
-                      <Stack direction="row" justifyContent="space-between" alignItems="center">
-                        <Typography variant="h6" sx={{ lineHeight: 1.2 }}>
-                          {p.projectName}
-                        </Typography>
-                        <Stack direction="row" spacing={0.5}>
-                          {hasPdf && <Chip size="small" variant="outlined" icon={<PictureAsPdfIcon />} label="PDF" />}
-                          <Chip size="small" color="warning" label="Pending" />
-                        </Stack>
-                      </Stack>
-
-                      <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1.2} flexWrap="wrap">
-                        <CardRow label="By" value={author} icon={<PersonIcon fontSize="small" color="primary" />} />
-                        <CardRow
-                          label="Co-Student"
-                          value={co || 'None'}
-                          icon={<GroupIcon fontSize="small" color="secondary" />}
-                        />
-                        <CardRow
-                          label="Suggested mentor"
-                          value={mentor || '—'}
-                          icon={<SchoolIcon fontSize="small" color="primary" />}
-                        />
-                      </Stack>
-
-                      <Typography variant="caption" color="text.secondary">
-                        Submitted {timeAgo(submitted)}
+                <Paper
+                  key={p._id}
+                  onClick={() => navigate(`/proposal-review/${p._id}`)}
+                  elevation={0}
+                  sx={(t) => ({
+                    p: 2.5,
+                    borderRadius: 3,
+                    cursor: 'pointer',
+                    transition: 'all .15s ease',
+                    border: '1px solid',
+                    borderColor: 'divider',
+                    background: t.palette.background.paper,
+                    '&:hover': {
+                      boxShadow: '0px 10px 25px rgba(0,0,0,0.06)',
+                      borderColor: 'primary.light',
+                      transform: 'translateY(-1px)',
+                    },
+                    minWidth: 0, // prevent overflow in grid items
+                  })}
+                >
+                  <Stack spacing={1.25}>
+                    {/* Title row */}
+                    <Stack direction="row" justifyContent="space-between" alignItems="center" minWidth={0}>
+                      <Typography
+                        variant="h6"
+                        sx={{ lineHeight: 1.2 }}
+                        noWrap
+                        title={p.projectName}
+                      >
+                        {p.projectName}
                       </Typography>
+                      <Stack direction="row" spacing={0.5} flexShrink={0}>
+                        {hasPdf && (
+                          <Chip size="small" variant="outlined" icon={<PictureAsPdfIcon />} label="PDF" />
+                        )}
+                        <Chip size="small" color="warning" label="Pending" />
+                      </Stack>
                     </Stack>
-                  </Paper>
-                </Grid>
+
+                    {/* Meta rows */}
+                    <Stack direction="row" spacing={2} flexWrap="wrap">
+                      <CardRow label="By" value={author} icon={<PersonIcon fontSize="small" color="primary" />} />
+                      <CardRow
+                        label="Co-Student"
+                        value={co || 'None'}
+                        icon={<GroupIcon fontSize="small" color="secondary" />}
+                      />
+                      <CardRow
+                        label="Suggested mentor"
+                        value={mentor || '—'}
+                        icon={<SchoolIcon fontSize="small" color="primary" />}
+                      />
+                    </Stack>
+
+                    <Typography variant="caption" color="text.secondary">
+                      Submitted {timeAgo(submitted)}
+                    </Typography>
+                  </Stack>
+                </Paper>
               );
             })}
-          </Grid>
+          </Box>
         )}
       </Paper>
     </Container>

@@ -18,15 +18,11 @@ const MeetingCard = ({
   role = 'student',
   meeting,
   currentUserId,
-  // Mentor actions
   onApprove,
   onDecline,
-  // Student actions
   onStudentApprove,
   onStudentDecline,
-  // Shared actions
   onReschedule,
-  // optional precomputed tasks count
   tasksCount,
   compact = false,
 }) => {
@@ -38,9 +34,7 @@ const MeetingCard = ({
   const isDateInPast = dayjs(proposedDate).isBefore(dayjs());
 
   const needsMyApproval = useMemo(() => {
-    if (!isPending || !proposer?._id || !currentUserId || !mentor?._id) {
-      return false;
-    }
+    if (!isPending || !proposer?._id || !currentUserId || !mentor?._id) return false;
     const isMyRoleMentor = role === 'mentor';
     const isProposerTheMentor = proposer._id === mentor._id;
     if (isMyRoleMentor && !isProposerTheMentor) return true;
@@ -78,12 +72,7 @@ const MeetingCard = ({
   }, [status, proposedDate]);
 
   const showApproveDecline = status === 'pending' && needsMyApproval;
-
-  const showReschedule =
-    (status === 'pending' || status === 'accepted') ? !isDateInPast
-      : status === 'expired' ? true
-        : false;
-
+  const showReschedule = (status === 'pending' || status === 'accepted') ? !isDateInPast : status === 'expired';
   const showTasksButton = status === 'held';
 
   const handleAction = async (fn) => {
@@ -115,8 +104,8 @@ const MeetingCard = ({
           flexDirection: 'column',
           height: '100%',
           width: '100%',
-          // keep it from becoming too narrow on larger screens
-          [theme.breakpoints.up('sm')]: { minWidth: 380 },
+          // REMOVE rigid minWidth that caused overlap
+          // add internal padding harmony for narrow widths
         })}
       >
         <Box
@@ -136,7 +125,7 @@ const MeetingCard = ({
           avatar={<EventIcon color={statusConfig.color} />}
           title={
             <Stack direction="row" spacing={1} alignItems="center" flexWrap="wrap">
-              <Typography variant="h6" sx={{ lineHeight: 1.2 }}>
+              <Typography variant="subtitle1" sx={{ lineHeight: 1.2, fontWeight: 600 }}>
                 {project?.name ? `Meeting: ${project.name}` : 'Meeting'}
               </Typography>
               <Chip size="small" label={statusConfig.label} color={statusConfig.color} variant="outlined" />
@@ -154,7 +143,7 @@ const MeetingCard = ({
           }
           subheader={
             <Stack spacing={0.25}>
-              <Typography variant="body2" color="text.secondary">
+              <Typography variant="body2" color="text.secondary" noWrap>
                 Proposed by{' '}
                 {proposer?._id ? (
                   <MuiLink component={Link} to={PROFILE_ROUTE(proposer._id)} underline="hover">
@@ -177,19 +166,19 @@ const MeetingCard = ({
         <Divider />
 
         <CardContent sx={{ flexGrow: 1, pt: 1.5, pb: 0, display: 'grid', gap: 1 }}>
-          <Stack direction="row" spacing={1.5} alignItems="center">
+          <Stack direction="row" spacing={1.5} alignItems="center" sx={{ flexWrap: 'wrap' }}>
             <Typography variant="body2" color="text.secondary" sx={{ minWidth: 90 }}>
               Date & Time:
             </Typography>
-            <Typography variant="body2">{dateStr}</Typography>
+            <Typography variant="body2" noWrap>{dateStr}</Typography>
           </Stack>
-          <Stack direction="row" spacing={1.5} alignItems="center">
+          <Stack direction="row" spacing={1.5} alignItems="center" sx={{ flexWrap: 'wrap' }}>
             <Typography variant="body2" color="text.secondary" sx={{ minWidth: 90 }}>
               Mentor:
             </Typography>
             <Stack direction="row" spacing={1} alignItems="center">
               <Avatar src={mentor?.avatarUrl} alt={mentor?.fullName} sx={{ width: 24, height: 24 }} />
-              <Typography variant="body2">{mentor?.fullName || '—'}</Typography>
+              <Typography variant="body2" noWrap>{mentor?.fullName || '—'}</Typography>
             </Stack>
           </Stack>
           <Stack direction="row" spacing={1.5} alignItems="center" sx={{ flexWrap: 'wrap' }}>
@@ -203,7 +192,7 @@ const MeetingCard = ({
                 </Avatar>
               ))}
             </AvatarGroup>
-            <Typography variant="body2" noWrap>
+            <Typography variant="body2" sx={{ display: { xs: 'none', sm: 'inline' } }} noWrap>
               {attendees
                 .map((a, idx) =>
                   a._id ? (
@@ -228,14 +217,9 @@ const MeetingCard = ({
           )}
         </CardContent>
 
-        <CardActions sx={{ px: 2, py: 1.25, justifyContent: 'flex-end', gap: 1 }}>
+        <CardActions sx={{ px: 2, py: 1.25, justifyContent: 'flex-end', gap: 1, flexWrap: 'wrap' }}>
           {showTasksButton && (
-            <Button
-              component={RouterLink}
-              to={`/tasks?meetingId=${_id}`}
-              size="small"
-              variant="outlined"
-            >
+            <Button component={RouterLink} to={`/tasks?meetingId=${_id}`} size="small" variant="outlined">
               {role === 'mentor' ? 'Manage tasks' : 'View tasks'}
             </Button>
           )}

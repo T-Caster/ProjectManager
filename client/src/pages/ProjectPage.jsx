@@ -5,48 +5,15 @@ import {
   Typography,
   CircularProgress,
   Alert,
-  Card,
-  CardContent,
-  CardHeader,
-  CardActions,
-  Chip,
   Stack,
-  Divider,
-  Avatar,
-  AvatarGroup,
   Button,
-  Grid,
-  Box,
-  Select,
-  MenuItem,
-  FormControl,
-  InputLabel,
-  IconButton,
-  Tooltip,
 } from '@mui/material';
-import EventNoteIcon from '@mui/icons-material/EventNote';
-import AssignmentTurnedInIcon from '@mui/icons-material/AssignmentTurnedIn';
-import FlagIcon from '@mui/icons-material/Flag';
-import RefreshIcon from '@mui/icons-material/Refresh';
-import dayjs from 'dayjs';
-import relativeTime from 'dayjs/plugin/relativeTime';
-
 import projectService from '../services/projectService';
 import { onEvent, offEvent } from '../services/socketService';
-import MeetingsSection from '../components/MeetingsSection';
 import { AuthUserContext } from '../contexts/AuthUserContext';
 import { useProjects } from '../contexts/ProjectContext';
 import { useMeetings } from '../contexts/MeetingContext';
-
-dayjs.extend(relativeTime);
-
-const statusMeta = {
-  proposal: { label: 'Proposal', color: 'warning' },
-  specification: { label: 'Specification', color: 'info' },
-  code: { label: 'Code', color: 'primary' },
-  presentation: { label: 'Presentation', color: 'secondary' },
-  done: { label: 'Done', color: 'success' },
-};
+import ProjectDetails from '../components/ProjectDetails';
 
 const ProjectPage = () => {
   const { projectId } = useParams();
@@ -59,7 +26,7 @@ const ProjectPage = () => {
   const [meetingFilter, setMeetingFilter] = useState('all');
   const [savingStatus, setSavingStatus] = useState(false);
   const [error, setError] = useState(null);
-  const [noProject, setNoProject] = useState(false); // explicit flag to render "no project yet"
+  const [noProject, setNoProject] = useState(false);
 
   const canEditStatus = user?.role === 'mentor' && user?._id === project?.mentor?._id;
 
@@ -69,7 +36,6 @@ const ProjectPage = () => {
       setError(null);
       setNoProject(false);
 
-      // No project id? Treat like "no project yet"
       if (!projectId) {
         setProject(null);
         setNoProject(true);
@@ -78,10 +44,8 @@ const ProjectPage = () => {
 
       const projectData = await projectService.getProject(projectId);
       setProject(projectData);
-      // Keep meetings fresh alongside project
       refetchMeetings();
     } catch (err) {
-      // If API gives a 404, treat as "no project yet" (common for students pre-approval)
       const status = err?.response?.status || err?.status;
       if (status === 404) {
         setProject(null);
@@ -94,12 +58,10 @@ const ProjectPage = () => {
     }
   };
 
-  // Derive the meetings for this projectId (memoized)
   const meetings = useMemo(() => {
     return (allMeetings || []).filter((m) => m.project?._id === projectId);
   }, [allMeetings, projectId]);
 
-  // If I'm a student and I don't have a project yet -> mark "no project"
   useEffect(() => {
     if (user?.role === 'student' && !user?.project?._id) {
       setNoProject(true);
@@ -109,13 +71,11 @@ const ProjectPage = () => {
     }
   }, [user]);
 
-  // Load when projectId changes
   useEffect(() => {
     load();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [projectId]);
 
-  // Live updates via socket
   useEffect(() => {
     const handleProjectUpdate = (updatedProject) => {
       if (updatedProject._id === projectId) {
@@ -140,16 +100,6 @@ const ProjectPage = () => {
     }
   };
 
-  const meetingCounts = useMemo(() => {
-    const base = { all: 0, pending: 0, accepted: 0, held: 0, expired: 0, rejected: 0 };
-    (meetings || []).forEach((m) => {
-      base.all += 1;
-      if (base[m.status] != null) base[m.status] += 1;
-    });
-    return base;
-  }, [meetings]);
-
-  // ---------- Render ----------
   if (loading) {
     return (
       <Container maxWidth="md" sx={{ display: 'flex', justifyContent: 'center', py: 4 }}>
@@ -193,223 +143,18 @@ const ProjectPage = () => {
     );
   }
 
-  const sMeta = statusMeta[project.status] || { label: project.status, color: 'default' };
-
   return (
-    <Container maxWidth="lg" sx={{ py: 4 }}>
-      {/* Header / Title row */}
-      <Stack
-        direction={{ xs: 'column', md: 'row' }}
-        spacing={1.5}
-        alignItems={{ xs: 'flex-start', md: 'center' }}
-        justifyContent="space-between"
-        sx={{ mb: 2 }}
-      >
-        <Stack direction="row" spacing={1} alignItems="center" flexWrap="wrap">
-          <Typography variant="h4" sx={{ lineHeight: 1.2 }}>{project.name}</Typography>
-          <Chip size="small" color={sMeta.color} label={sMeta.label} variant="outlined" />
-          {!!project.snapshots?.approvedAt && (
-            <Chip
-              size="small"
-              icon={<FlagIcon />}
-              label={`Approved ${dayjs(project.snapshots.approvedAt).fromNow()}`}
-              variant="outlined"
-            />
-          )}
-        </Stack>
-
-        <Stack direction="row" spacing={1} alignItems="center">
-          <Tooltip title="Refresh">
-            <span>
-              <IconButton onClick={load} disabled={loading}>
-                {loading ? <CircularProgress size={18} /> : <RefreshIcon />}
-              </IconButton>
-            </span>
-          </Tooltip>
-          <Button
-            component={Link}
-            to={`/tasks?projectId=${project._id}`}
-            variant="contained"
-            startIcon={<AssignmentTurnedInIcon />}
-          >
-            {user?.role === 'mentor' ? 'Manage Tasks' : 'View Tasks'}
-          </Button>
-        </Stack>
-      </Stack>
-
-      <Grid container spacing={3} alignItems="stretch">
-        {/* Left: Details card */}
-        <Grid item size={{ xs: 12, md: 8 }} sx={{ display: 'flex' }}>
-          <Card
-            elevation={0}
-            sx={(theme) => ({
-              flex: 1,
-              height: '100%',
-              display: 'flex',
-              flexDirection: 'column',
-              borderRadius: 3,
-              border: '1px solid',
-              borderColor: 'divider',
-              background: theme.palette.background.paper,
-            })}
-          >
-            <CardHeader
-              title="Project Overview"
-              subheader={project.proposal ? 'Created from an approved proposal' : ''}
-              action={
-                <Chip
-                  size="small"
-                  color={sMeta.color}
-                  label={sMeta.label}
-                  variant="outlined"
-                />
-              }
-            />
-            <Divider />
-            <CardContent sx={{ flexGrow: 1 }}>
-              <Stack spacing={2}>
-                <Box>
-                  <Typography variant="overline" color="text.secondary">Background</Typography>
-                  <Typography variant="body2" sx={{ mt: 0.5 }}>
-                    {project.background}
-                  </Typography>
-                </Box>
-
-                <Box>
-                  <Typography variant="overline" color="text.secondary">Objectives</Typography>
-                  <Typography variant="body2" sx={{ mt: 0.5 }}>
-                    {project.objectives}
-                  </Typography>
-                </Box>
-
-                <Grid container spacing={2}>
-                  <Grid item size={{ xs: 12, md: 6 }}>
-                    <Typography variant="overline" color="text.secondary">Mentor</Typography>
-                    <Stack direction="row" spacing={1} alignItems="center" sx={{ mt: 0.5 }}>
-                      <Avatar
-                        src={project.mentor?.avatarUrl}
-                        alt={project.mentor?.fullName}
-                        sx={{ width: 28, height: 28 }}
-                      />
-                      <Typography variant="body2">{project.mentor?.fullName || '—'}</Typography>
-                    </Stack>
-                  </Grid>
-                  <Grid item size={{ xs: 12, md: 6 }}>
-                    <Typography variant="overline" color="text.secondary">Students</Typography>
-                    <Stack direction="row" spacing={1} alignItems="center" sx={{ mt: 0.5 }}>
-                      <AvatarGroup max={4} sx={{ '& .MuiAvatar-root': { width: 28, height: 28 } }}>
-                        {(project.students || []).map((s) => (
-                          <Avatar key={s._id} src={s.avatarUrl} alt={s.fullName}>
-                            {s.fullName?.[0]}
-                          </Avatar>
-                        ))}
-                      </AvatarGroup>
-                      <Typography variant="body2" noWrap>
-                        {(project.students || []).map((s) => s.fullName).join(', ') || '—'}
-                      </Typography>
-                    </Stack>
-                  </Grid>
-                </Grid>
-              </Stack>
-            </CardContent>
-          </Card>
-        </Grid>
-
-        {/* Right: Status + quick stats */}
-        <Grid item size={{ xs: 12, md: 4 }} sx={{ display: 'flex' }}>
-          <Card
-            elevation={0}
-            sx={(theme) => ({
-              flex: 1,
-              height: '100%',
-              display: 'flex',
-              flexDirection: 'column',
-              borderRadius: 3,
-              border: '1px solid',
-              borderColor: 'divider',
-              background: theme.palette.background.paper,
-            })}
-          >
-            <CardHeader title="Status & Insights" />
-            <Divider />
-            <CardContent sx={{ flexGrow: 1 }}>
-              {/* Editable status (mentor only) */}
-              <Box sx={{ mb: 2 }}>
-                <Typography variant="overline" color="text.secondary">Project Status</Typography>
-                {canEditStatus ? (
-                  <FormControl fullWidth sx={{ mt: 1 }}>
-                    <InputLabel>Status</InputLabel>
-                    <Select
-                      label="Status"
-                      value={project.status}
-                      onChange={handleStatusChange}
-                      disabled={savingStatus}
-                      size="small"
-                    >
-                      <MenuItem value="proposal">Proposal</MenuItem>
-                      <MenuItem value="specification">Specification</MenuItem>
-                      <MenuItem value="code">Code</MenuItem>
-                      <MenuItem value="presentation">Presentation</MenuItem>
-                      <MenuItem value="done">Done</MenuItem>
-                    </Select>
-                  </FormControl>
-                ) : (
-                  <Box>
-                    <Chip sx={{ mt: 1 }} size="small" color={sMeta.color} label={sMeta.label} />
-                  </Box>
-                )}
-              </Box>
-
-              {/* Quick meeting stats */}
-              <Typography variant="overline" color="text.secondary">Meetings</Typography>
-              <Box
-                sx={{
-                  display: 'flex',
-                  flexWrap: 'wrap',
-                  gap: 1,
-                  mt: 1,
-                }}
-              >
-                <Chip size="small" icon={<EventNoteIcon />} label={`All: ${meetingCounts.all}`} />
-                <Chip size="small" color="warning" label={`Pending: ${meetingCounts.pending}`} />
-                <Chip size="small" color="success" label={`Scheduled: ${meetingCounts.accepted}`} />
-                <Chip size="small" label={`Held: ${meetingCounts.held}`} />
-                <Chip size="small" color="warning" variant="outlined" label={`Expired: ${meetingCounts.expired}`} />
-                <Chip size="small" color="error" label={`Rejected: ${meetingCounts.rejected}`} />
-              </Box>
-            </CardContent>
-
-            <CardActions sx={{ justifyContent: 'flex-end', px: 2, pb: 2, mt: 'auto' }}>
-              <Button
-                component={Link}
-                to={`/tasks?projectId=${project._id}`}
-                variant="outlined"
-                size="small"
-                startIcon={<AssignmentTurnedInIcon />}
-              >
-                {user?.role === 'mentor' ? 'Manage Tasks' : 'View Tasks'}
-              </Button>
-            </CardActions>
-          </Card>
-        </Grid>
-      </Grid>
-
-      {/* Meetings list */}
-      <Box sx={{ mt: 3 }}>
-        <MeetingsSection
-          title="Project Meetings"
-          meetings={meetings}
-          loading={false}
-          role={user.role}
-          currentUserId={user?._id}
-          filter={meetingFilter}
-          onFilterChange={setMeetingFilter}
-          onRefresh={load}
-          emptyStateTitle="No meetings yet."
-          emptyStateMessage="When a meeting is proposed, it will appear here."
-        />
-      </Box>
-    </Container>
+    <ProjectDetails
+      project={project}
+      meetings={meetings}
+      loading={loading}
+      onStatusChange={handleStatusChange}
+      savingStatus={savingStatus}
+      canEditStatus={canEditStatus}
+      meetingFilter={meetingFilter}
+      onMeetingFilterChange={setMeetingFilter}
+      onRefresh={load}
+    />
   );
 };
 
