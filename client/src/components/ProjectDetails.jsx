@@ -161,7 +161,7 @@ const ProjectDetails = ({
                     <Typography variant="overline" color="text.secondary">Mentor</Typography>
                     <Stack direction="row" spacing={1} alignItems="center" sx={{ mt: 0.5 }}>
                       <Avatar
-                        src={project.mentor?.avatarUrl}
+                        src={project.mentor?.profilePic}
                         alt={project.mentor?.fullName}
                         sx={{ width: 28, height: 28 }}
                       />
@@ -173,7 +173,7 @@ const ProjectDetails = ({
                     <Stack direction="row" spacing={1} alignItems="center" sx={{ mt: 0.5 }}>
                       <AvatarGroup max={4} sx={{ '& .MuiAvatar-root': { width: 28, height: 28 } }}>
                         {(project.students || []).map((s) => (
-                          <Avatar key={s._id} src={s.avatarUrl} alt={s.fullName}>
+                          <Avatar key={s._id} src={s.profilePic} alt={s.fullName}>
                             {s.fullName?.[0]}
                           </Avatar>
                         ))}

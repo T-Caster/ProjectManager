@@ -177,7 +177,7 @@ const MeetingCard = ({
               Mentor:
             </Typography>
             <Stack direction="row" spacing={1} alignItems="center">
-              <Avatar src={mentor?.avatarUrl} alt={mentor?.fullName} sx={{ width: 24, height: 24 }} />
+              <Avatar src={mentor?.profilePic} alt={mentor?.fullName} sx={{ width: 24, height: 24 }} />
               <Typography variant="body2" noWrap>{mentor?.fullName || '—'}</Typography>
             </Stack>
           </Stack>
@@ -187,7 +187,7 @@ const MeetingCard = ({
             </Typography>
             <AvatarGroup max={4} sx={{ '& .MuiAvatar-root': { width: 28, height: 28 } }}>
               {attendees.map((a) => (
-                <Avatar key={a._id || a.fullName} src={a.avatarUrl} alt={a.fullName}>
+                <Avatar key={a._id || a.fullName} src={a.profilePic} alt={a.fullName}>
                   {a.fullName?.[0]}
                 </Avatar>
               ))}
