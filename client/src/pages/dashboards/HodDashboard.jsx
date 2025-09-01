@@ -19,7 +19,7 @@ import ProjectStatusPieChart from '../../components/ProjectStatusPieChart';
 
 const HodDashboard = () => {
   const { projects, loading: projectsLoading } = useProjects();
-  const { proposals, loading: proposalsLoading } = useProposals();
+  const { pendingProposals: proposals, loading: proposalsLoading } = useProposals();
   const [users, setUsers] = useState([]);
   const [usersLoading, setUsersLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -28,8 +28,8 @@ const HodDashboard = () => {
     const fetchUsers = async () => {
       try {
         setUsersLoading(true);
-        const usersData = await getUsers();
-        setUsers(usersData);
+        const response = await getUsers();
+        setUsers(response.data);
       } catch (err) {
         setError(err);
       } finally {
@@ -39,7 +39,7 @@ const HodDashboard = () => {
     fetchUsers();
   }, []);
 
-  const students = users.filter(u => u.role === 'student');
+  const students = Array.isArray(users) ? users.filter(u => u.role === 'student') : [];
   const pendingProposals = proposals.filter(p => p.status === 'pending');
 
   const loading = projectsLoading || proposalsLoading || usersLoading;
