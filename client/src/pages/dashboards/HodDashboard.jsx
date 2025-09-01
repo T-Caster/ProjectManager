@@ -22,14 +22,14 @@ import RefreshIcon from '@mui/icons-material/Refresh';
 import { useProjects } from '../../contexts/ProjectContext';
 import { useProposals } from '../../contexts/useProposals';
 import { getUsers } from '../../services/hodService';
-import { KpiCard, SectionCard} from "../../components/SmallComponents"
+import { KpiCard, SectionCard } from "../../components/SmallComponents"
 import ProjectStatusBarChart from '../../components/ProjectStatusBarChart';
 import ProjectStatusPieChart from '../../components/ProjectStatusPieChart';
 
 const HodDashboard = () => {
   // ----- existing data flow (unchanged)
   const { projects, loading: projectsLoading } = useProjects();
-  const { pendingProposals: proposals, loading: proposalsLoading } = useProposals();
+  const { pendingProposals, isLoading: proposalsLoading, refreshProposals } = useProposals();
 
   const [users, setUsers] = useState([]);
   const [usersLoading, setUsersLoading] = useState(true);
@@ -37,6 +37,11 @@ const HodDashboard = () => {
 
   // local “soft” refresh flag for button spinner
   const [refreshing, setRefreshing] = useState(false);
+
+  useEffect(() => {
+    // ensure fresh data whenever this page mounts/returns
+    refreshProposals();
+  }, [refreshProposals]);
 
   useEffect(() => {
     const fetchUsers = async () => {
@@ -54,7 +59,6 @@ const HodDashboard = () => {
   }, []);
 
   const students = Array.isArray(users) ? users.filter((u) => u.role === 'student') : [];
-  const pendingProposals = proposals.filter((p) => p.status === 'pending');
 
   const loading = projectsLoading || proposalsLoading || usersLoading;
 
@@ -64,6 +68,7 @@ const HodDashboard = () => {
     try {
       const response = await getUsers();
       setUsers(response.data);
+      refreshProposals()
       // charts re-render automatically via existing contexts
     } catch (err) {
       setError(err);
@@ -79,10 +84,10 @@ const HodDashboard = () => {
         <Stack spacing={2}>
           <Skeleton variant="rounded" height={120} />
           <Grid container spacing={2}>
-            <Grid item size={{xs: 12, md: 6}}>
+            <Grid item size={{ xs: 12, md: 6 }}>
               <Skeleton variant="rounded" height={340} />
             </Grid>
-            <Grid item size={{xs: 12, md: 6}}>
+            <Grid item size={{ xs: 12, md: 6 }}>
               <Skeleton variant="rounded" height={340} />
             </Grid>
           </Grid>
@@ -164,7 +169,7 @@ const HodDashboard = () => {
           </Stack>
 
           <Grid container spacing={2} sx={{ mt: 1 }}>
-            <Grid item size={{xs: 12, md: 4}}>
+            <Grid item size={{ xs: 12, md: 4 }}>
               <KpiCard
                 icon={<PendingActionsIcon />}
                 label="Pending Proposals"
@@ -173,7 +178,7 @@ const HodDashboard = () => {
                 to="/proposals-queue"
               />
             </Grid>
-            <Grid item size={{xs: 12, md: 4}}>
+            <Grid item size={{ xs: 12, md: 4 }}>
               <KpiCard
                 icon={<PeopleAltIcon />}
                 label="Students"
@@ -181,7 +186,7 @@ const HodDashboard = () => {
                 chipColor="info"
               />
             </Grid>
-            <Grid item size={{xs: 12, md: 4}}>
+            <Grid item size={{ xs: 12, md: 4 }}>
               <KpiCard
                 icon={<AssignmentTurnedInIcon />}
                 label="Projects"
@@ -195,7 +200,7 @@ const HodDashboard = () => {
 
       {/* Charts Row */}
       <Grid container spacing={3}>
-        <Grid item size={{xs: 12, md: 6}}>
+        <Grid item size={{ xs: 12, md: 6 }}>
           <SectionCard title="Student Project Progress" subtitle="Breakdown by stage across enrolled students">
             <Box sx={{ height: 360 }}>
               <ProjectStatusBarChart projects={projects} students={students} />
@@ -203,7 +208,7 @@ const HodDashboard = () => {
           </SectionCard>
         </Grid>
 
-        <Grid item size={{xs: 12, md: 6}}>
+        <Grid item size={{ xs: 12, md: 6 }}>
           <SectionCard title="Overall Project Status" subtitle="Distribution of all active projects">
             <Box sx={{ height: 360 }}>
               <ProjectStatusPieChart projects={projects} />

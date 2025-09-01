@@ -67,7 +67,7 @@ const MeetingsPage = () => {
   }
 
   return (
-    <Container maxWidth="md" sx={{ py: 4 }}>
+    <Container sx={{ py: 4 }}>
       <MeetingsSection
         title="Incoming Meetings"
         meetings={meetings}

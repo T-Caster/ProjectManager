@@ -7,6 +7,9 @@ const jwt = require('jsonwebtoken');
 const User = require('./models/User');
 const Proposal = require('./models/Proposal');
 const Project = require('./models/Project');
+const File = require("./models/File")
+const Meeting = require("./models/Meeting")
+const Task = require("./models/Task")
 
 const { SERVER_URL, PORT } = process.env;
 const API_URL = `${SERVER_URL}:${PORT}/api`;
@@ -37,6 +40,10 @@ const seedData = async () => {
     await Project.deleteMany({});
     await Proposal.deleteMany({});
     await User.deleteMany({});
+    await File.deleteMany({});
+    await Meeting.deleteMany({});
+    await Task.deleteMany({});
+
     console.log('Existing data cleared');
     console.log('Seeding data...');
 
