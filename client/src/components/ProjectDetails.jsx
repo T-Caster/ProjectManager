@@ -113,7 +113,7 @@ const ProjectDetails = ({
 
       <Grid container spacing={3} alignItems="stretch">
         {/* Left: Details card */}
-        <Grid item xs={12} md={8} sx={{ display: 'flex' }}>
+        <Grid item size={{xs: 12, md: 8}} sx={{ display: 'flex' }}>
           <Card
             elevation={0}
             sx={(theme) => ({
@@ -157,7 +157,7 @@ const ProjectDetails = ({
                 </Box>
 
                 <Grid container spacing={2}>
-                  <Grid item xs={12} md={6}>
+                  <Grid item size={{xs: 12, md: 6}}>
                     <Typography variant="overline" color="text.secondary">Mentor</Typography>
                     <Stack direction="row" spacing={1} alignItems="center" sx={{ mt: 0.5 }}>
                       <Avatar
@@ -168,7 +168,7 @@ const ProjectDetails = ({
                       <Typography variant="body2">{project.mentor?.fullName || '—'}</Typography>
                     </Stack>
                   </Grid>
-                  <Grid item xs={12} md={6}>
+                  <Grid item size={{xs: 12, md: 6}}>
                     <Typography variant="overline" color="text.secondary">Students</Typography>
                     <Stack direction="row" spacing={1} alignItems="center" sx={{ mt: 0.5 }}>
                       <AvatarGroup max={4} sx={{ '& .MuiAvatar-root': { width: 28, height: 28 } }}>
@@ -190,7 +190,7 @@ const ProjectDetails = ({
         </Grid>
 
         {/* Right: Status + quick stats */}
-        <Grid item xs={12} md={4} sx={{ display: 'flex' }}>
+        <Grid item size={{xs: 12, md: 4}} sx={{ display: 'flex' }}>
           <Card
             elevation={0}
             sx={(theme) => ({

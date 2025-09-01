@@ -190,7 +190,7 @@ const MeetingsSection = ({
       ) : (
         <Grid container spacing={2}>
           {filteredMeetings.map((meeting) => (
-            <Grid item xs={12} sm={6} md={4} key={meeting._id}>
+            <Grid item size={{xs: 12, sm: 6, md: 4}} key={meeting._id}>
               <MeetingCard
                 meeting={meeting}
                 role={user.role}

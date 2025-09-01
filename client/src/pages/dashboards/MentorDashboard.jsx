@@ -56,7 +56,7 @@ const MentorDashboard = () => {
     <Container maxWidth="lg" sx={{ py: 4 }}>
       <Grid container spacing={3}>
         {/* Row 1: Header/KPIs (wide) + Project Status chart (compact) */}
-        <Grid item xs={12} md={8}>
+        <Grid item size={{ xs: 12, md: 8 }}>
           <Card
             elevation={0}
             sx={(t) => ({
@@ -99,7 +99,7 @@ const MentorDashboard = () => {
               </Stack>
 
               <Grid container spacing={1.5} sx={{ mt: 1 }}>
-                <Grid item xs={12}>
+                <Grid item size={{ xs: 12 }}>
                   <KpiCard
                     icon={<FolderSpecialIcon />}
                     label="My Projects"
@@ -108,7 +108,7 @@ const MentorDashboard = () => {
                     to="/projects"
                   />
                 </Grid>
-                <Grid item xs={6}>
+                <Grid item size={{ xs: 6 }}>
                   <KpiCard
                     icon={<CalendarMonthIcon />}
                     label="Upcoming"
@@ -117,7 +117,7 @@ const MentorDashboard = () => {
                     to="/meetings"
                   />
                 </Grid>
-                <Grid item xs={6}>
+                <Grid item size={{ xs: 6 }}>
                   <KpiCard
                     icon={<PendingActionsIcon />}
                     label="Pending"
@@ -131,7 +131,7 @@ const MentorDashboard = () => {
           </Card>
         </Grid>
 
-        <Grid item xs={12} md={4}>
+        <Grid item size={{ xs: 12, md: 4 }}>
           <Card elevation={0} sx={{ borderRadius: 3, border: '1px solid', borderColor: 'divider', height: '100%' }}>
             <CardHeader
               title={
@@ -156,7 +156,7 @@ const MentorDashboard = () => {
         </Grid>
 
         {/* Row 2: Upcoming Meetings (full width) */}
-        <Grid item xs={12}>
+        <Grid item size={{ xs: 12 }}>
           <Card elevation={0} sx={{ borderRadius: 3, border: '1px solid', borderColor: 'divider' }}>
             <CardHeader
               title={
@@ -179,7 +179,7 @@ const MentorDashboard = () => {
         </Grid>
 
         {/* Row 3: My Projects (full width) */}
-        <Grid item xs={12}>
+        <Grid item size={{ xs: 12 }}>
           <Card elevation={0} sx={{ borderRadius: 3, border: '1px solid', borderColor: 'divider' }}>
             <CardHeader
               title={
