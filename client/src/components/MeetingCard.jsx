@@ -71,8 +71,21 @@ const MeetingCard = ({
     return '';
   }, [status, proposedDate]);
 
+  // under other useMemos / consts
+  const isAttendee = useMemo(() => {
+    if (!currentUserId) return false;
+    const attendeeIds = (attendees || []).map(a => a?._id).filter(Boolean);
+    // include mentor/proposer as fallbacks in case they aren't in attendees
+    if (mentor?._id) attendeeIds.push(mentor._id);
+    if (proposer?._id) attendeeIds.push(proposer._id);
+    return attendeeIds.includes(currentUserId);
+  }, [attendees, mentor?._id, proposer?._id, currentUserId]);
+
+
   const showApproveDecline = status === 'pending' && needsMyApproval;
-  const showReschedule = (status === 'pending' || status === 'accepted') ? !isDateInPast : status === 'expired';
+  const showReschedule =
+    (((status === 'pending' || status === 'accepted') ? !isDateInPast : status === 'expired'))
+    && isAttendee;
   const showTasksButton = status === 'held';
 
   const handleAction = async (fn) => {
