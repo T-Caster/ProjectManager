@@ -157,7 +157,14 @@ const ViewUsersPage = () => {
       fullName: updatedUser.fullName,
       role: isSelf && authUser?.role === 'hod' ? 'hod' : updatedUser.role,
     };
-    return updateUser(updatedUser._id, payload);
+    try {
+      const { data: savedUser } = await updateUser(updatedUser._id, payload);
+      setUsers((prev) => prev.map((u) => (u._id === savedUser._id ? savedUser : u)));
+      return savedUser;
+    } catch (err) {
+      // Optionally handle error (e.g., show notification)
+      return null;
+    }
   };
 
   return (

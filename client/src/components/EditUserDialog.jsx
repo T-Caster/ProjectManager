@@ -30,8 +30,11 @@ const EditUserDialog = ({ open, onClose, user, onSave, currentUserId }) => {
     setEditedUser((prev) => ({ ...prev, [name]: value }));
   };
 
-  const handleSave = () => {
-    onSave(editedUser);
+  const handleSave = async () => {
+    const result = await onSave(editedUser);
+    if (result) {
+      onClose();
+    }
   };
 
   if (!editedUser) return null;

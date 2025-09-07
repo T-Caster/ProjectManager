@@ -3,7 +3,7 @@ const authMiddleware = require("../middleware/authMiddleware");
 const roleMiddleware = require("../middleware/roleMiddleware");
 const User = require("../models/User");
 
-const { getIo } = require("../services/socketManager");
+
 const router = express.Router();
 
 // HOD gets all users
@@ -43,8 +43,8 @@ router.put("/users/:id", authMiddleware, roleMiddleware(["hod"]), async (req, re
       return res.status(404).json({ error: "User not found" });
     }
 
-    // Emit a socket event to notify clients of the user update
-    getIo().emit("userUpdated", user);
+  // Emit a socket event to notify clients of the user update
+  req.io.emit("userUpdated", user);
 
     res.json(user);
   } catch (err) {

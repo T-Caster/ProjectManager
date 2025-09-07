@@ -1,3 +1,5 @@
+# Firas Sliman
+---
 # Project Documentation
 
 Welcome to the project documentation. This documentation provides a detailed explanation of the project's architecture, features, and implementation.
