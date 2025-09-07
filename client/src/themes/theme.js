@@ -1,3 +1,4 @@
+// src/theme.js
 import { createTheme } from "@mui/material/styles";
 
 // The color palette from your image and standard additions
@@ -36,9 +37,8 @@ const theme = createTheme({
       primary: palette.black,
       secondary: palette.mediumBlue,
     },
-    accent: {
-      main: palette.lightBlue,
-    },
+    // custom slots (JS only; TS would need module augmentation)
+    accent: { main: palette.lightBlue },
     sidebar: {
       background: palette.sidebarBg,
       hover: palette.sidebarHover,
@@ -59,23 +59,36 @@ const theme = createTheme({
         root: {
           color: "inherit",
           textDecoration: "none",
-          "&:visited": {
-            color: "inherit",
-          },
-          "&:active": {
-            color: "inherit",
-          },
+          cursor: "pointer",
+          "&:visited": { color: "inherit" },
+          "&:active": { color: "inherit" },
         },
       },
     },
+
+    // Desktop nav buttons (NavLink inside Button)
     MuiButton: {
       styleOverrides: {
-        root: {
+        root: ({ theme }) => ({
           textTransform: "none",
           fontWeight: 600,
           padding: "10px 20px",
-          variants: [],
-        },
+          // Active state from React Router v6: class="active"
+          "&.active": {
+            color: theme.palette.primary.main,
+            position: "relative",
+          },
+          "&.active::after": {
+            content: '""',
+            position: "absolute",
+            left: 12,
+            right: 12,
+            bottom: 6,
+            height: 3,
+            borderRadius: 2,
+            backgroundColor: theme.palette.primary.main,
+          },
+        }),
         contained: {
           boxShadow: "none",
           "&:hover": {
@@ -84,76 +97,62 @@ const theme = createTheme({
         },
       },
     },
+
+    // Mobile menu items (NavLink inside MenuItem)
+    MuiMenuItem: {
+      styleOverrides: {
+        root: ({ theme }) => ({
+          "&.active": {
+            backgroundColor: theme.palette.action.selected,
+            color: theme.palette.primary.main,
+            fontWeight: 700,
+          },
+        }),
+      },
+    },
+
     MuiTextField: {
       styleOverrides: {
         root: {
           "& .MuiOutlinedInput-root": {
-            "& fieldset": {
-              borderColor: "rgba(0, 0, 0, 0.23)",
-            },
-            "&:hover fieldset": {
-              borderColor: "rgba(0, 0, 0, 0.5)",
-            },
+            "& fieldset": { borderColor: "rgba(0, 0, 0, 0.23)" },
+            "&:hover fieldset": { borderColor: "rgba(0, 0, 0, 0.5)" },
           },
         },
       },
     },
+
     MuiCheckbox: {
       styleOverrides: {
-        root: {
-          color: "rgba(0, 0, 0, 0.54)",
-        },
+        root: { color: "rgba(0, 0, 0, 0.54)" },
       },
     },
-    MuiLink: {
-      styleOverrides: {
-        root: {
-          cursor: "pointer",
-        },
-      },
-    },
+
     MuiCard: {
       styleOverrides: {
-        root: {
-          boxShadow: "0px 10px 25px rgba(0, 0, 0, 0.05)",
-        },
+        root: { boxShadow: "0px 10px 25px rgba(0, 0, 0, 0.05)" },
       },
     },
+
     MuiCssBaseline: {
       styleOverrides: {
         "@keyframes ripple": {
-          from: {
-            transform: "scale(0)",
-            opacity: 1,
-          },
-          to: {
-            transform: "scale(4)",
-            opacity: 0,
-          },
+          from: { transform: "scale(0)", opacity: 1 },
+          to: { transform: "scale(4)", opacity: 0 },
         },
       },
     },
+
+    // Optional: zero out Container side paddings globally
     MuiContainer: {
       styleOverrides: {
         root: {
           paddingLeft: 0,
           paddingRight: 0,
-          "@media (min-width: 600px)": {
-            paddingLeft: 0,
-            paddingRight: 0,
-          },
-          "@media (min-width: 900px)": {
-            paddingLeft: 0,
-            paddingRight: 0,
-          },
-          "@media (min-width: 1200px)": {
-            paddingLeft: 0,
-            paddingRight: 0,
-          },
-          "@media (min-width: 1536px)": {
-            paddingLeft: 0,
-            paddingRight: 0,
-          },
+          "@media (min-width: 600px)": { paddingLeft: 0, paddingRight: 0 },
+          "@media (min-width: 900px)": { paddingLeft: 0, paddingRight: 0 },
+          "@media (min-width: 1200px)": { paddingLeft: 0, paddingRight: 0 },
+          "@media (min-width: 1536px)": { paddingLeft: 0, paddingRight: 0 },
         },
       },
     },

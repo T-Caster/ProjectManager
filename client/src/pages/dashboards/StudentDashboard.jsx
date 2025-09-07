@@ -33,6 +33,7 @@ import PersonOutlineIcon from '@mui/icons-material/PersonOutline';
 import GroupIcon from '@mui/icons-material/Group';
 import InfoOutlinedIcon from '@mui/icons-material/InfoOutlined';
 import TaskAltIcon from '@mui/icons-material/TaskAlt';
+import dayjs from 'dayjs';
 
 import projectService from '../../services/projectService';
 import { onEvent, offEvent } from '../../services/socketService';
@@ -58,7 +59,7 @@ const StudentDashboard = () => {
   const projectId = user?.project?._id;
 
   const { updateProjectStatus } = useProjects();
-  const { meetings: allMeetings, refetchMeetings } = useMeetings();
+  const { meetings, refetchMeetings } = useMeetings();
 
   const [project, setProject] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -96,12 +97,6 @@ const StudentDashboard = () => {
       setLoading(false);
     }
   };
-
-  const meetings = useMemo(
-    () => (allMeetings || []).filter((m) => m.project?._id === projectId),
-    [allMeetings, projectId]
-  );
-
   useEffect(() => {
     load();
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -331,7 +326,7 @@ const StudentDashboard = () => {
                       </ListItemIcon>
                       <ListItemText
                         primary={m.title || 'Meeting'}
-                        secondary={new Date(m.when).toLocaleString()}
+                        secondary={dayjs(m.when).format('DD/MM/YYYY HH:mm')}
                         primaryTypographyProps={{ variant: 'body2', fontWeight: 600 }}
                         secondaryTypographyProps={{ variant: 'caption', color: 'text.secondary' }}
                       />
